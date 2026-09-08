@@ -2,7 +2,7 @@ name: Python and Web tests
 
 on:
   push:
-    branches: [main, "improvement/**"]
+    branches: [main, "improvement/**", "feat/**"]
   pull_request:
 
 jobs:
@@ -17,7 +17,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
       - name: Run standard-library test suite
         run: python -m unittest discover -s tests -v
       - name: Compile Python sources
@@ -47,3 +46,34 @@ jobs:
           sleep 2
           curl --fail http://127.0.0.1:3000/api/health
           curl --fail http://127.0.0.1:3000/api/state >/dev/null
+
+  native-aurora:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Wayland and headless display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwayland-dev libwayland-egl1-mesa libwayland-server0 libgles2-mesa-dev libxkbcommon-dev pkg-config ninja-build xvfb
+      - name: Install Qt 6.11.2
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730
+        with:
+          version: 6.11.2
+          arch: linux_gcc_64
+          dir: ${{ github.workspace }}/Qt
+          modules: qtwaylandcompositor
+          cache: true
+      - name: Configure Aurora native compositor
+        run: |
+          cmake -S native/aurora -B build/aurora -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
+      - name: Build Aurora native compositor
+        run: cmake --build build/aurora --parallel
+      - name: Validate generated QML tooling
+        run: |
+          "$QT_ROOT_DIR/bin/qmllint" \
+            -I "$QT_ROOT_DIR/qml" \
+            native/aurora/Aurora.qml
+      - name: Run nested Wayland smoke test
+        run: xvfb-run -a --server-args="-screen 0 1920x1080x24" ctest --test-dir build/aurora --output-on-failure
