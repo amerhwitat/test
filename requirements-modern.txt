@@ -1,0 +1,12 @@
+# Modern track: choose versions appropriate to the deployed Python runtime.
+# The core package remains standard-library-first.
+PyMuPDF>=1.26
+Pillow>=11
+numpy>=2
+scikit-learn>=1.7
+pandas>=2.2
+scipy>=1.13
+matplotlib>=3.9
+requests>=2.32
+beautifulsoup4>=4.12
+opencv-python>=4.10
