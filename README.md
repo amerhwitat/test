@@ -1,6 +1,15 @@
-# Chimera II Python 3.8.1 Consolidation
+# Chimera II Python Research Platform
 
-This repository is the **separate consolidation target** for the user's Python 3.8.1 work and source material. The `amerhwitat/ChimeraIIOS` repository is intentionally **not modified**.
+This repository is the **separate consolidation and improvement target** for the user's Python research/application work. The `amerhwitat/ChimeraIIOS` repository is intentionally **not modified**.
+
+## What was added
+
+- A standard-library-first `chimera_py/` runtime with configuration, safe paths, logging, jobs and plugin discovery.
+- A headless `research_app/` layer for Unicode text normalization, SQLite document indexing, optional PyMuPDF PDF extraction/search/rendering, and CLI automation.
+- Hardened GitHub source importing with URL-safe paths, traversal protection, truncated-tree detection, optional environment-token authentication, size limits, and provenance manifests.
+- Python 3.8 compatibility and modern dependency tracks.
+- Multi-version GitHub Actions tests and compile checks.
+- Provenance and compatibility documentation.
 
 ## Source repositories
 
@@ -8,23 +17,38 @@ This repository is the **separate consolidation target** for the user's Python 3
 - https://github.com/amerhwitat/PDFreaderPY — Python PDF reader
 - https://github.com/amerhwitat/bruteforce — security/cryptocurrency research scripts
 
-## Compatibility target
+## Layout
 
-- Python: 3.8.1
-- Encoding: UTF-8
-- Existing interfaces/ABI: preserve where applicable
+- `chimera_py/` — core runtime primitives
+- `research_app/` — document/research services and CLI
+- `tools/` — developer/import utilities
+- `research/` — NLP, OCR, Thamudic and other research programs
+- `security_research/` — isolated security research material
+- `docs/` — architecture, compatibility and provenance documentation
+- `tests/` — regression/conformance tests
+
+## CLI
+
+```bash
+python -m research_app.cli info
+python -m research_app.cli source audit
+python -m research_app.cli pdf extract FILE.pdf
+python -m research_app.cli pdf search FILE.pdf TERM
+python -m research_app.cli import
+```
+
+The PDF commands load PyMuPDF lazily, so the core CLI remains usable without the PDF dependency.
+
+## Compatibility
+
+The source remains Python 3.8-compatible to preserve legacy interfaces, but Python 3.8 reached end-of-life on 2024-10-07. Use a currently supported Python release for new production deployments; see `docs/COMPATIBILITY.md`.
 
 ## Safety and provenance
 
-Source material is kept separated by origin. Security/cryptocurrency research code is not treated as Chimera II OS core code and is not enhanced to facilitate unauthorized access or key recovery.
+Source material is kept separated by origin. Security/cryptocurrency research code is not treated as Chimera II core code and is not enhanced to facilitate unauthorized access or key recovery.
 
-## Intended layout
+Imported programs are never executed by the source importer. The importer records source blob identifiers in `docs/import-manifest.json`.
 
-- `chimera/` — core architecture, ISA, emulator and tooling
-- `tools/` — developer utilities
-- `research/` — NLP, OCR, Thamudic and other research programs
-- `security_research/` — isolated security research material
-- `docs/` — architecture and provenance documentation
-- `tests/` — Python 3.8.1 and regression/conformance tests
+## Relationship to Chimera II OS
 
-This repository is independent of `amerhwitat/ChimeraIIOS`.
+This repository is an application/research consolidation layer. Future ISA/emulator adapters can be connected through explicit interfaces without coupling the application to a specific `ChimeraIIOS` checkout.
