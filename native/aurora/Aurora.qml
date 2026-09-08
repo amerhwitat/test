@@ -30,7 +30,6 @@ WaylandCompositor {
         id: output
         sizeFollowsWindow: true
         window: compositorWindow
-        scaleFactor: Math.max(1, Math.round(compositorWindow.devicePixelRatio))
     }
 
     WaylandSeat {
