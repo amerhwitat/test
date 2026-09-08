@@ -46,7 +46,7 @@ The native source-of-record repository remains read-only for this project:
 
 - https://github.com/amerhwitat/ChimeraIIOS
 
-Its architecture contains Spit Fire/Jasper boot, Koronos, RegisterN, Spotnik, VFS/TensorFS/Nucleus/Hive, Aurora, CEF, ISA tooling and web explorer surfaces; the Python implementation provides host-compatible runtime adapters rather than claiming to replace firmware or kernel drivers. citeturn126file0
+Its architecture contains Spit Fire/Jasper boot, Koronos, RegisterN, Spotnik, VFS/TensorFS/Nucleus/Hive, Aurora, CEF, ISA tooling and web explorer surfaces; the Python implementation provides host-compatible runtime adapters rather than claiming to replace firmware or kernel drivers.
 
 ## Web interface
 
@@ -69,9 +69,9 @@ Default endpoints:
 
 ## Compatibility
 
-Python **3.14.7** is the current stable target. Python 3.8 remains a legacy compatibility lane. Python 3.15.0rc2 is a pre-release and is not the production baseline. Node.js **24.20.0** is the current LTS line; Node.js 26.8.1 is the current release line. citeturn0search5turn0search0turn0search11
+Python **3.14.7** is the current stable target. Python 3.8 remains a legacy compatibility lane. Python 3.15.0rc2 is a pre-release and is not the production baseline. Node.js **24.20.0** is the current LTS line; Node.js 26.8.1 is the current release line.
 
-QEMU remains the future machine-level virtualization boundary: its system emulation provides virtual CPU, memory and device models, while TCG supplies CPU emulation. citeturn0search1turn0search2
+QEMU remains the future machine-level virtualization boundary: its system emulation provides virtual CPU, memory and device models, while TCG supplies CPU emulation.
 
 ## Source repositories
 
