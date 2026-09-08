@@ -2,67 +2,84 @@
 
 This repository is the **separate consolidation and improvement target** for the user's Python research/application work. The `amerhwitat/ChimeraIIOS` repository is intentionally **not modified**.
 
+## Unified Chimera II host runtime
+
+`test` now provides a single host-side startup path:
+
+```text
+Spitfire boot model -> Koronos kernel -> Chimera services -> Aurora Wayland boundary
+                                               |
+                                         Python API :8765
+                                               |
+                                      Node.js/Aurora Web :3000
+```
+
+Start everything with:
+
+```bash
+python3 start_chimera.py
+```
+
+Then open `http://127.0.0.1:3000`. Node.js serves the Aurora web shell and proxies `/api/*` to the Python runtime. No npm dependencies are required.
+
+The bootloader is intentionally a **host/emulation model**: Python cannot replace UEFI/BIOS or directly execute an MBR. A future bare-metal Spitfire image remains a separate firmware target.
+
 ## What was added
 
-- A standard-library-first `chimera_py/` runtime with configuration, safe paths, logging, jobs and plugin discovery.
-- A portable **8192-bit Chimera II Python execution layer** derived from the native C/C++ ISA surfaces.
+- Standard-library-first `chimera_py/` runtime with configuration, safe paths, logging, jobs and plugin discovery.
+- Portable **8192-bit Chimera II Python execution layer** derived from native C/C++ ISA surfaces.
 - Canonical 16-byte instruction encoding/decoding, assembler/disassembler and a 284-entry `0x0001..0x011C` opcode identity registry.
 - 1024-register R8192 emulation, 128 × 64-bit lanes, privilege checks, memory operations, scheduler, DMA/service boundaries and JSON state reporting.
-- A Python compatibility layer corresponding to the native `chimera.h` control/state API.
-- A headless `research_app/` layer for Unicode text normalization, SQLite document indexing, optional PyMuPDF PDF extraction/search/rendering, and CLI automation.
-- Hardened GitHub source importing with URL-safe paths, traversal protection, truncated-tree detection, optional environment-token authentication, size limits, and provenance manifests.
-- Python 3.8 compatibility plus a current Python 3.14 CI lane.
-- Provenance, native-port and compatibility documentation.
+- Python compatibility layer corresponding to the native `chimera.h` control/state API.
+- Spitfire boot sequence and Koronos/service orchestration.
+- RegisterN, Spotnik, VFS, TensorFS, Nucleus, Hive, CEF, Kore, DMA and N-bit service boundaries.
+- Python HTTP API and Node.js 24 LTS web supervisor/Aurora shell.
+- Headless research/document layer with Unicode normalization, SQLite indexing and optional PyMuPDF support.
+- Hardened GitHub source importing with provenance.
+- Python 3.8 compatibility plus current Python 3.14 support.
 
-## Chimera native-to-Python port
+## Native-to-Python port
 
-See `docs/CHIMERA_PYTHON_PORT.md` for the conversion matrix and deep integration audit.
+See `docs/CHIMERA_PYTHON_PORT.md` and `docs/BOOT_WEB_AURORA_ARCHITECTURE.md`.
 
-```bash
-python -c "from chimera_py import ISA; print(ISA.opcodes['ADD'], hex(ISA.opcodes['POLICY_AUDIT']))"
-python -c "from chimera_py.assembler import assemble_text, disassemble; print(disassemble(assemble_text('ADD R1,R2,R3')))"
-python -c "from chimera_py import ChimeraCore; c=ChimeraCore(); c.step(); print(c.state()['ticks'])"
-```
+The native source-of-record repository remains read-only for this project:
 
-## Source repositories
+- https://github.com/amerhwitat/ChimeraIIOS
 
-- https://github.com/amerhwitat/nlp — Python/NLP/OCR/Thamudic and related research programs
-- https://github.com/amerhwitat/PDFreaderPY — Python PDF reader
-- https://github.com/amerhwitat/bruteforce — security/cryptocurrency research scripts
-- https://github.com/amerhwitat/ChimeraIIOS — native Chimera II source of record; **read-only for this project**
+Its architecture contains Spit Fire/Jasper boot, Koronos, RegisterN, Spotnik, VFS/TensorFS/Nucleus/Hive, Aurora, CEF, ISA tooling and web explorer surfaces; the Python implementation provides host-compatible runtime adapters rather than claiming to replace firmware or kernel drivers. citeturn126file0
 
-## Layout
-
-- `chimera_py/` — portable Chimera II runtime, ISA and kernel/service compatibility
-- `research_app/` — document/research services and CLI
-- `tools/` — developer/import utilities
-- `research/` — NLP, OCR, Thamudic and other research programs
-- `security_research/` — isolated security research material
-- `docs/` — architecture, compatibility, provenance and native-port documentation
-- `tests/` — regression/conformance tests
-
-## CLI
+## Web interface
 
 ```bash
-python -m research_app.cli info
-python -m research_app.cli source audit
-python -m research_app.cli pdf extract FILE.pdf
-python -m research_app.cli pdf search FILE.pdf TERM
-python -m research_app.cli import
+python3 start_chimera.py
 ```
 
-The PDF commands load PyMuPDF lazily, so the core CLI remains usable without the PDF dependency.
+Or independently:
+
+```bash
+python3 -m chimera_py
+cd web && npm start
+```
+
+Default endpoints:
+
+- Aurora web UI: `http://127.0.0.1:3000`
+- Python health: `http://127.0.0.1:8765/api/health`
+- Python state: `http://127.0.0.1:8765/api/state`
 
 ## Compatibility
 
-Python **3.14.7** is the current stable target. Python 3.8 remains a legacy compatibility lane only. Use a currently supported Python release for new production deployments; see `docs/COMPATIBILITY.md` and `docs/CHIMERA_PYTHON_PORT.md`.
+Python **3.14.7** is the current stable target. Python 3.8 remains a legacy compatibility lane. Python 3.15.0rc2 is a pre-release and is not the production baseline. Node.js **24.20.0** is the current LTS line; Node.js 26.8.1 is the current release line. citeturn0search5turn0search0turn0search11
+
+QEMU remains the future machine-level virtualization boundary: its system emulation provides virtual CPU, memory and device models, while TCG supplies CPU emulation. citeturn0search1turn0search2
+
+## Source repositories
+
+- https://github.com/amerhwitat/nlp — Python/NLP/OCR/Thamudic research
+- https://github.com/amerhwitat/PDFreaderPY — Python PDF reader
+- https://github.com/amerhwitat/bruteforce — isolated security/cryptocurrency research
+- https://github.com/amerhwitat/ChimeraIIOS — native Chimera II source of record; **not modified by this project**
 
 ## Safety and provenance
 
-Source material is kept separated by origin. Security/cryptocurrency research code is not treated as Chimera II core code and is not enhanced to facilitate unauthorized access or key recovery.
-
-Imported programs are never executed by the source importer. The importer records source blob identifiers in `docs/import-manifest.json`.
-
-## Relationship to Chimera II OS
-
-This repository is the Python application/research and emulator consolidation layer. Native firmware, assembly, QEMU, UEFI, Wayland, GPU and device functionality remains behind explicit adapters rather than being falsely represented as pure Python firmware or host-driver implementations.
+Security/cryptocurrency research remains isolated and is not enhanced to facilitate unauthorized access or key recovery. Native firmware, assembly, QEMU, UEFI, Wayland, GPU and device functionality remains behind explicit adapters rather than being falsely represented as pure Python firmware or host-driver implementations.
