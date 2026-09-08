@@ -1,0 +1,9 @@
+{
+  "name": "chimera-ii-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chimera II OS Aurora web bridge",
+  "type": "commonjs",
+  "scripts": {"start": "node server.js"},
+  "engines": {"node": ">=24"}
+}
