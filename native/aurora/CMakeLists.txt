@@ -17,11 +17,18 @@ qt_add_executable(aurora_compositor
     main.cpp
 )
 
+qt_policy(SET QTP0001 NEW)
+
 qt_add_qml_module(aurora_compositor
     URI Aurora
     VERSION 1.0
     QML_FILES
         Aurora.qml
+    DEPENDENCIES
+        QtQuick
+        QtQuick.Window
+        QtWayland.Compositor
+        QtWayland.Compositor.XdgShell
 )
 
 target_link_libraries(aurora_compositor PRIVATE
