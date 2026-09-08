@@ -15,11 +15,10 @@ int main(int argc, char **argv)
         qputenv("QT_WAYLAND_HARDWARE_INTEGRATION", "wayland-egl");
 
     QQmlApplicationEngine engine;
-    const QUrl url(QStringLiteral("qrc:/qt/qml/Aurora/Aurora.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed,
                      &app, [] { QCoreApplication::exit(EXIT_FAILURE); },
                      Qt::QueuedConnection);
-    engine.load(url);
+    engine.loadFromModule("Aurora", "Aurora");
     if (engine.rootObjects().isEmpty())
         return EXIT_FAILURE;
     return app.exec();
