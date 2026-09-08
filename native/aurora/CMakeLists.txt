@@ -10,6 +10,8 @@ set(CMAKE_AUTOUIC ON)
 enable_testing()
 
 find_package(Qt6 6.6 REQUIRED COMPONENTS Quick WaylandCompositor WaylandClient)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
 
 qt_add_executable(aurora_compositor
     main.cpp
@@ -33,6 +35,7 @@ qt_add_executable(aurora_client_probe
 
 target_link_libraries(aurora_client_probe PRIVATE
     Qt6::WaylandClient
+    PkgConfig::WAYLAND_CLIENT
 )
 
 add_test(
