@@ -55,25 +55,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwayland-dev libwayland-egl1-mesa libwayland-server0 libgles2-mesa-dev libxkbcommon-dev pkg-config ninja-build xvfb
-      - name: Set up Python for Qt installer
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install Qt installer
-        run: python -m pip install --disable-pip-version-check aqtinstall==3.2.0
       - name: Install Qt 6.11.2
-        run: python -m aqt install-qt --outputdir "$HOME/Qt" linux desktop 6.11.2 gcc_64
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730
+        with:
+          version: 6.11.2
+          arch: linux_gcc_64
+          dir: ${{ github.workspace }}/Qt
+          modules: qtwaylandcompositor
+          cache: true
       - name: Configure Aurora native compositor
         run: |
           cmake -S native/aurora -B build/aurora -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$HOME/Qt/6.11.2/gcc_64"
+            -DCMAKE_PREFIX_PATH="$QTDIR"
       - name: Build Aurora native compositor
         run: cmake --build build/aurora --parallel
       - name: Validate generated QML tooling
         run: |
-          "$HOME/Qt/6.11.2/gcc_64/bin/qmllint" \
-            -I "$HOME/Qt/6.11.2/gcc_64/qml" \
+          "$QTDIR/bin/qmllint" \
+            -I "$QTDIR/qml" \
             native/aurora/Aurora.qml
       - name: Run nested Wayland smoke test
         run: xvfb-run -a --server-args="-screen 0 1920x1080x24" ctest --test-dir build/aurora --output-on-failure
