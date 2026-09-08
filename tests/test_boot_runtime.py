@@ -13,6 +13,13 @@ class BootRuntimeTests(unittest.TestCase):
         self.assertEqual(state["services"]["aurora-wayland"]["state"], "ready")
         self.assertIn("spitfire-loader", [x["stage"] for x in state["boot"]["stages"]])
 
+    def test_aurora_mode_is_explicit_without_changing_state_contract(self):
+        runtime = ChimeraRuntime()
+        runtime.boot()
+        session = runtime.services["aurora-wayland"]
+        self.assertEqual(session.state, "ready")
+        self.assertIn(session.mode, {"native", "host-fallback", "configured", "unavailable"})
+
     def test_tick_after_boot(self):
         runtime = ChimeraRuntime()
         runtime.boot()
