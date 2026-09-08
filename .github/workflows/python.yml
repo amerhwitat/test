@@ -2,7 +2,7 @@ name: Python and Web tests
 
 on:
   push:
-    branches: [main, "improvement/**"]
+    branches: [main, "improvement/**", "feat/**"]
   pull_request:
 
 jobs:
@@ -17,7 +17,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
       - name: Run standard-library test suite
         run: python -m unittest discover -s tests -v
       - name: Compile Python sources
