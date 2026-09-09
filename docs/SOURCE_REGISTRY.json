@@ -1,0 +1,37 @@
+{
+  "project": "Chimera II OS",
+  "target": "amerhwitat/test",
+  "policy": {
+    "target_only_writes": true,
+    "source_repositories_read_only": true,
+    "preserve_license_and_attribution": true,
+    "never_copy_secrets_or_credentials": true,
+    "never_claim_catalogued_code_is_executed": true
+  },
+  "repositories": [
+    {"repo":"amerhwitat/CPU4096","role":"4096-bit simulator and arithmetic","adapter":"chimera_py/isa8192.py"},
+    {"repo":"amerhwitat/CPU4096Simulator","role":"Node.js ISA, memory, kernel, networking, toolchain, 128D, robotics and web","adapter":"web/ and Python conformance contracts"},
+    {"repo":"amerhwitat/keygen","role":"Java CPU, Koronos/128D, Spitfire/Jasper lifecycle and services","adapter":"chimera_py/"},
+    {"repo":"amerhwitat/amerhwitat.github.io","role":"native C/C++ CPU, platform compatibility, ISA and service architecture","adapter":"chimera_py/native_port.py"},
+    {"repo":"amerhwitat/nlp","role":"NLP/OCR/Thamudic research","adapter":"research/nlp boundary"},
+    {"repo":"amerhwitat/PDFreaderPY","role":"PDF/document research","adapter":"research/pdfreaderPY boundary"},
+    {"repo":"amerhwitat/bruteforce","role":"isolated security/cryptocurrency research","adapter":"provenance only"}
+  ],
+  "boot_contract": [
+    "Spitfire 8-stage boot",
+    "Spitfire progress must reach 100 percent",
+    "Koronos services must be ready",
+    "Jasper starts only after both gates pass",
+    "desktop session becomes ready after Jasper",
+    "Aurora host compositor remains a host-controlled adapter"
+  ],
+  "isa_contract": {
+    "width_bits": 8192,
+    "registers": 1024,
+    "lanes": 128,
+    "instruction_bytes": 16,
+    "opcode_slots": 284,
+    "range": "0x0001..0x011C",
+    "semantic_status": "only explicitly implemented operations are executable"
+  }
+}
