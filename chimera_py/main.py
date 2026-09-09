@@ -1,6 +1,5 @@
 from __future__ import annotations
 import argparse
-import threading
 from .orchestrator import ChimeraRuntime
 from .api_server import serve
 
@@ -13,10 +12,13 @@ def main() -> int:
 
     runtime = ChimeraRuntime()
     runtime.boot()
-    print("[SPITFIRE] bootloader ready")
+    state = runtime.state()
+    print("[SPITFIRE] bootloader ready: %d%%" % state["boot"]["progress_percent"])
     print("[KORONOS] kernel ready")
     print("[CHIMERA] services ready: %d" % len(runtime.services))
-    print("[AURORA] Wayland host-session bridge ready")
+    print("[JASPER] desktop manager: %s / %s" % (state["jasper"]["state"], state["jasper"]["desktop_state"]))
+    print("[AURORA] Wayland host-session bridge: %s" % state["aurora"]["state"])
+    print("[DESKTOP] ready=%s profile=%s" % (state["desktop"]["ready"], state["desktop"]["profile"]))
 
     if args.no_api:
         return 0
