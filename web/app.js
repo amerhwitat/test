@@ -1,19 +1,102 @@
-const $ = (q) => document.querySelector(q);
+const $ = (q, root = document) => root.querySelector(q);
+const $$ = (q, root = document) => [...root.querySelectorAll(q)];
 const desktop = $('#desktop');
 const startMenu = $('#startMenu');
 
 function toggleStart(force) {
+  if (!startMenu) return;
   const open = force ?? !startMenu.classList.contains('open');
   startMenu.classList.toggle('open', open);
   startMenu.setAttribute('aria-hidden', String(!open));
   if (open) setTimeout(() => $('#startSearch')?.focus(), 60);
 }
 
-$('#startButton')?.addEventListener('click', () => toggleStart());
-$('#brand')?.addEventListener('click', () => toggleStart());
-$('#searchButton')?.addEventListener('click', () => { toggleStart(true); $('#startSearch')?.focus(); });
-$('#refreshButton')?.addEventListener('click', refresh);
-document.addEventListener('pointerdown', (e) => { if (!startMenu.contains(e.target) && !$('#startButton')?.contains(e.target) && !$('#brand')?.contains(e.target)) toggleStart(false); });
+function activateWindow(name) {
+  const target = document.querySelector(`[data-window="${CSS.escape(name)}"]`);
+  if (!target) return;
+  target.hidden = false;
+  target.classList.remove('window-minimized');
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $$('.task-app').forEach(x => x.classList.toggle('active', x.dataset.target === name));
+}
+
+function handleWindowControl(button) {
+  const win = button.closest('.window');
+  if (!win) return;
+  const controls = [...button.parentElement.children];
+  const index = controls.indexOf(button);
+  if (index === 0 || index === 2) {
+    win.classList.add('window-minimized');
+    win.hidden = true;
+  } else if (index === 1) {
+    win.classList.toggle('window-maximized');
+  }
+}
+
+// Centralized mouse/touch click handling. This also covers controls created
+// later by refresh(), so no element needs to be rebound after DOM updates.
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+
+  const windowControl = target.closest('.window-controls button');
+  if (windowControl) {
+    event.preventDefault();
+    event.stopPropagation();
+    handleWindowControl(windowControl);
+    return;
+  }
+
+  const taskApp = target.closest('.task-app');
+  if (taskApp) {
+    event.preventDefault();
+    activateWindow(taskApp.dataset.target);
+    return;
+  }
+
+  const pinned = target.closest('.pinned button[data-app]');
+  if (pinned) {
+    event.preventDefault();
+    const map = { System: 'system', Jasper: 'jasper', Terminal: 'services', Research: 'kernel', Files: 'services', Network: 'services', Settings: 'system' };
+    activateWindow(map[pinned.dataset.app] || 'system');
+    toggleStart(false);
+    return;
+  }
+
+  const allApps = target.closest('.start-heading .text-button');
+  if (allApps) {
+    event.preventDefault();
+    toggleStart(false);
+    activateWindow('services');
+    return;
+  }
+
+  const power = target.closest('.start-footer button[aria-label="Power"]');
+  if (power) {
+    event.preventDefault();
+    toggleStart(false);
+    desktop?.classList.toggle('power-suspended');
+    return;
+  }
+
+  if (target.closest('#startButton, #brand')) {
+    event.preventDefault();
+    toggleStart();
+    return;
+  }
+
+  if (target.closest('#searchButton')) {
+    event.preventDefault();
+    toggleStart(true);
+    $('#startSearch')?.focus();
+  }
+});
+
+document.addEventListener('pointerdown', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+  if (!startMenu?.contains(target) && !$('#startButton')?.contains(target) && !$('#brand')?.contains(target)) toggleStart(false);
+});
 
 function updateClock() {
   const now = new Date();
@@ -69,12 +152,6 @@ document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); toggleStart(true); $('#startSearch')?.focus(); }
 });
 
-document.querySelectorAll('.task-app').forEach(btn => btn.addEventListener('click', () => {
-  const target = document.querySelector(`[data-window="${btn.dataset.target}"]`);
-  target?.scrollIntoView({behavior:'smooth', block:'center'});
-  document.querySelectorAll('.task-app').forEach(x => x.classList.remove('active')); btn.classList.add('active');
-}));
-
 const snapPreview = $('#snapPreview');
 desktop?.addEventListener('pointermove', (e) => {
   const edge = 34, w = innerWidth, h = innerHeight;
@@ -89,7 +166,7 @@ desktop?.addEventListener('pointerleave', () => { snapPreview.style.opacity = 0;
 
 $('#startSearch')?.addEventListener('input', (e) => {
   const q = e.target.value.trim().toLowerCase();
-  document.querySelectorAll('.pinned button').forEach(btn => { btn.hidden = q && !btn.textContent.toLowerCase().includes(q); });
+  $$('.pinned button').forEach(btn => { btn.hidden = Boolean(q && !btn.textContent.toLowerCase().includes(q)); });
 });
 
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('reduce-motion');
