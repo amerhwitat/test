@@ -5,6 +5,7 @@ from typing import Dict
 
 from .aurora import AuroraSession
 from .boot import SpitfireBootloader
+from .jasper import JasperManager
 from .kernel import ChimeraKernel
 
 
@@ -16,7 +17,7 @@ class RuntimeService:
 
 
 class ChimeraRuntime:
-    """Single-process boot/service supervisor for the Python Chimera II host."""
+    """Single-process Chimera II host supervisor: Spitfire -> Koronos -> Jasper -> Aurora."""
 
     SERVICE_NAMES = (
         "registern", "spotnik", "vfs", "tensorfs", "nucleus", "hive",
@@ -27,9 +28,9 @@ class ChimeraRuntime:
         self.bootloader = SpitfireBootloader()
         self.kernel = ChimeraKernel()
         self.aurora = AuroraSession()
-        self.services: Dict[str, RuntimeService] = {
-            name: RuntimeService(name) for name in self.SERVICE_NAMES
-        }
+        self.services: Dict[str, RuntimeService] = {name: RuntimeService(name) for name in self.SERVICE_NAMES}
+        self.jasper = JasperManager(self, profile="aurora")
+        self.desktop_ready = False
         self.running = False
 
     def boot(self) -> dict:
@@ -43,6 +44,7 @@ class ChimeraRuntime:
         self.running = True
         self.kernel.create_task("koronos-idle", priority=-1)
         self.kernel.create_task("chimera-services", priority=5)
+        self.desktop_ready = self.jasper.start()
         return self.state()
 
     def tick(self) -> dict:
@@ -56,6 +58,13 @@ class ChimeraRuntime:
             "boot": self.bootloader.state(),
             "kernel": self.kernel.state(),
             "services": {name: vars(item).copy() for name, item in self.services.items()},
+            "jasper": self.jasper.status(),
+            "desktop": {
+                "ready": self.desktop_ready,
+                "profile": self.jasper.profile,
+                "manager": "Jasper",
+                "compositor": self.aurora.state,
+            },
             "aurora": {
                 "mode": self.aurora.mode,
                 "state": self.services["aurora-wayland"].state,
