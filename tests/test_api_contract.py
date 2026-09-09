@@ -1,5 +1,4 @@
 import json
-import re
 import threading
 import unittest
 from pathlib import Path
@@ -54,7 +53,7 @@ class WebInteractionContractTests(unittest.TestCase):
     def test_keyboard_command_dispatch_is_present(self):
         js = self.read("app.js")
         self.assertIn("function executeCommand", js)
-        self.assertRegex(js, r"e\.key\s*===\s*['\"]Enter['\"]")
+        self.assertIn("e.key === 'Enter'", js)
         self.assertIn("startSearch", js)
         self.assertIn("refresh()", js)
 
