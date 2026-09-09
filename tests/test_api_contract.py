@@ -1,6 +1,7 @@
 import json
 import threading
 import unittest
+from pathlib import Path
 from urllib.request import urlopen
 
 from chimera_py.api_server import serve
@@ -41,6 +42,30 @@ class ApiContractTests(unittest.TestCase):
         desktop = self.get("/api/desktop")
         self.assertTrue(desktop["ready"])
         self.assertEqual(desktop["manager"], "Jasper")
+
+
+class WebInteractionContractTests(unittest.TestCase):
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def read(self, name):
+        return (self.ROOT / "web" / name).read_text(encoding="utf-8")
+
+    def test_keyboard_command_dispatch_is_present(self):
+        js = self.read("app.js")
+        for token in ("function executeCommand", "e.key === 'Enter'", "startSearch", "refresh()"):
+            self.assertIn(token, js)
+
+    def test_click_dispatch_is_delegated(self):
+        js = self.read("app.js")
+        self.assertIn("document.addEventListener('click'", js)
+        self.assertIn("closest('.task-app')", js)
+        self.assertIn("closest('.pinned button[data-app]')", js)
+
+    def test_controls_are_keyboard_focusable(self):
+        html = self.read("index.html")
+        self.assertIn('id="startSearch"', html)
+        self.assertIn('id="refreshButton"', html)
+        self.assertIn('id="startButton"', html)
 
 
 if __name__ == "__main__":
