@@ -1,17 +1,21 @@
 # Chimera II Python Research Platform
 
-This repository is the **separate consolidation and improvement target** for the user's Python research/application work. The `amerhwitat/ChimeraIIOS` repository is intentionally **not modified**.
+`amerhwitat/test` is the host-side consolidation, integration and conformance target for the related Chimera II work. The native source-of-record repositories are preserved separately; this repository provides executable Python adapters, web integration, tests and desktop lifecycle orchestration.
 
-## Unified Chimera II host runtime
-
-`test` now provides a single host-side startup path:
+## Unified startup
 
 ```text
-Spitfire boot model -> Koronos kernel -> Chimera services -> Aurora Wayland boundary
-                                               |
-                                         Python API :8765
-                                               |
-                                      Node.js/Aurora Web :3000
+Spitfire boot (100%)
+        ↓
+Koronos kernel
+        ↓
+Chimera services
+        ↓
+Jasper Desktop Manager
+        ↓
+Desktop session READY
+        ↓
+Aurora Wayland boundary
 ```
 
 Start everything with:
@@ -20,66 +24,55 @@ Start everything with:
 python3 start_chimera.py
 ```
 
-Then open `http://127.0.0.1:3000`. Node.js serves the Aurora web shell and proxies `/api/*` to the Python runtime. No npm dependencies are required.
+Then open `http://127.0.0.1:3000` when the web bridge is enabled. Python API defaults to `http://127.0.0.1:8765`.
 
-The bootloader is intentionally a **host/emulation model**: Python cannot replace UEFI/BIOS or directly execute an MBR. A future bare-metal Spitfire image remains a separate firmware target.
+### Boot gate
 
-## What was added
+The desktop **cannot start before Spitfire reaches 100%**. Jasper additionally verifies required Koronos services before transitioning the logical desktop session to `ready`.
 
-- Standard-library-first `chimera_py/` runtime with configuration, safe paths, logging, jobs and plugin discovery.
-- Portable **8192-bit Chimera II Python execution layer** derived from native C/C++ ISA surfaces.
-- Canonical 16-byte instruction encoding/decoding, assembler/disassembler and a 284-entry `0x0001..0x011C` opcode identity registry.
-- 1024-register R8192 emulation, 128 × 64-bit lanes, privilege checks, memory operations, scheduler, DMA/service boundaries and JSON state reporting.
-- Python compatibility layer corresponding to the native `chimera.h` control/state API.
-- Spitfire boot sequence and Koronos/service orchestration.
-- RegisterN, Spotnik, VFS, TensorFS, Nucleus, Hive, CEF, Kore, DMA and N-bit service boundaries.
-- Python HTTP API and Node.js 24 LTS web supervisor/Aurora shell.
-- Headless research/document layer with Unicode normalization, SQLite indexing and optional PyMuPDF support.
-- Hardened GitHub source importing with provenance.
-- Python 3.8 compatibility plus current Python 3.14 support.
+The runtime state exposes:
 
-## Native-to-Python port
+- `boot.progress_percent`
+- `boot.desktop_gate_open`
+- `jasper.state`
+- `jasper.desktop_state`
+- `desktop.ready`
+- `desktop.manager`
+- `desktop.profile`
+- `aurora.state`
 
-See `docs/CHIMERA_PYTHON_PORT.md` and `docs/BOOT_WEB_AURORA_ARCHITECTURE.md`.
+## Integrated functionality
 
-The native source-of-record repository remains read-only for this project:
+- 8192-bit R8192 execution layer and 1024-register model.
+- Canonical 16-byte instruction codec, assembler/disassembler and 284-entry opcode identity registry.
+- Memory, virtual memory, MMIO/fault and protection models.
+- Kernel scheduler, process contexts, capabilities, IPC, syscalls and service management.
+- Network packet, UDP/TCP, DNS and Netlink-compatible models.
+- 128D/Koronos research vectors and deterministic brain-network simulation boundaries.
+- Robotics HAL and swarm scheduling boundaries.
+- Key-generation/hash/HMAC-compatible host security primitives.
+- Spitfire boot state machine and Koronos service orchestration.
+- **Jasper Desktop Manager** with explicit boot/service gates.
+- Aurora desktop/web shell and native compositor integration tests.
+- NLP/OCR/Thamudic and PDF research import boundaries.
+- Provenance-aware source importing and compatibility documentation.
 
-- https://github.com/amerhwitat/ChimeraIIOS
+## Source consolidation
 
-Its architecture contains Spit Fire/Jasper boot, Koronos, RegisterN, Spotnik, VFS/TensorFS/Nucleus/Hive, Aurora, CEF, ISA tooling and web explorer surfaces; the Python implementation provides host-compatible runtime adapters rather than claiming to replace firmware or kernel drivers.
+See `docs/SOURCE_CONSOLIDATION.md` for the repository-by-repository mapping. Related source families include `CPU4096`, `CPU4096Simulator`, `keygen`, native `amerhwitat.github.io`, `nlp`, and `PDFreaderPY`. Security/cryptocurrency research remains isolated and is not converted into unauthorized credential or private-key recovery functionality.
 
-## Web interface
+## ISA status
 
-```bash
-python3 start_chimera.py
-```
+The canonical **284 opcode slots** are retained as an identity/catalogue boundary. A catalogued opcode is not automatically a fully implemented instruction. Execution semantics are implemented incrementally with conformance tests; undefined operations remain explicit.
 
-Or independently:
+## Host/emulation boundary
 
-```bash
-python3 -m chimera_py
-cd web && npm start
-```
-
-Default endpoints:
-
-- Aurora web UI: `http://127.0.0.1:3000`
-- Python health: `http://127.0.0.1:8765/api/health`
-- Python state: `http://127.0.0.1:8765/api/state`
+Spitfire and Jasper in this repository are host-side models. Python does not replace UEFI/BIOS, MBR execution, kernel-mode drivers, firmware or physical hardware. Aurora can launch a host compositor when explicitly configured, while the logical desktop session can still be marked ready for headless CI and research environments.
 
 ## Compatibility
 
-Python **3.14.7** is the current stable target. Python 3.8 remains a legacy compatibility lane. Python 3.15.0rc2 is a pre-release and is not the production baseline. Node.js **24.20.0** is the current LTS line; Node.js 26.8.1 is the current release line.
+Python 3.8 remains a legacy compatibility lane; current Python 3.14 is the primary target. Node.js 24 LTS is used by CI. QEMU remains the future machine-level virtualization boundary.
 
-QEMU remains the future machine-level virtualization boundary: its system emulation provides virtual CPU, memory and device models, while TCG supplies CPU emulation.
+## Repository policy
 
-## Source repositories
-
-- https://github.com/amerhwitat/nlp — Python/NLP/OCR/Thamudic research
-- https://github.com/amerhwitat/PDFreaderPY — Python PDF reader
-- https://github.com/amerhwitat/bruteforce — isolated security/cryptocurrency research
-- https://github.com/amerhwitat/ChimeraIIOS — native Chimera II source of record; **not modified by this project**
-
-## Safety and provenance
-
-Security/cryptocurrency research remains isolated and is not enhanced to facilitate unauthorized access or key recovery. Native firmware, assembly, QEMU, UEFI, Wayland, GPU and device functionality remains behind explicit adapters rather than being falsely represented as pure Python firmware or host-driver implementations.
+This repository is the integration target. Other source repositories are not modified by the Python consolidation workflow.
