@@ -17,22 +17,23 @@
     <main class="workspace" id="workspace">
       <section class="hero glass window" data-window="system">
         <div class="titlebar"><div><span class="window-icon">◈</span> Aurora System</div><div class="window-controls"><button aria-label="Minimize">—</button><button aria-label="Maximize">□</button><button aria-label="Close">×</button></div></div>
-        <div class="hero-content"><div><p class="eyebrow">SPITFIRE → KORONOS → AURORA</p><h1>Chimera II OS</h1><p class="subtitle">A responsive glass desktop for the Chimera runtime.</p></div><div class="orbital" aria-hidden="true"><div class="core">CII</div><i></i><i></i><i></i></div></div>
+        <div class="hero-content"><div><p class="eyebrow">SPITFIRE → KORONOS → JASPER → AURORA</p><h1>Chimera II OS</h1><p class="subtitle">A responsive desktop session gated by completed system boot.</p></div><div class="orbital" aria-hidden="true"><div class="core">CII</div><i></i><i></i><i></i></div></div>
       </section>
-      <section class="window glass panel" data-window="boot"><div class="titlebar"><div><span class="window-icon">◉</span> Boot sequence</div><span class="pill" id="bootPill">LIVE</span></div><pre id="boot">Loading…</pre></section>
+      <section class="window glass panel" data-window="boot"><div class="titlebar"><div><span class="window-icon">◉</span> Spitfire boot sequence</div><span class="pill" id="bootPill">LIVE</span></div><pre id="boot">Loading…</pre></section>
       <section class="window glass panel" data-window="kernel"><div class="titlebar"><div><span class="window-icon">⬢</span> Koronos kernel</div><span class="pill cyan">RUNNING</span></div><pre id="kernel">Loading…</pre></section>
+      <section class="window glass panel wide" data-window="jasper"><div class="titlebar"><div><span class="window-icon">✦</span> Jasper Desktop Manager</div><span class="pill" id="jasperPill">STARTING</span></div><div id="jasper" class="aurora-state">Waiting for boot state…</div></section>
       <section class="window glass panel wide" data-window="services"><div class="titlebar"><div><span class="window-icon">⌘</span> System services</div><button class="text-button" id="refreshButton">Refresh</button></div><div id="services" class="service-grid"></div></section>
       <section class="window glass panel wide" data-window="aurora"><div class="titlebar"><div><span class="window-icon">✧</span> Aurora Wayland</div><span class="pill" id="auroraPill">READY</span></div><p id="aurora" class="aurora-state">Loading…</p><div class="interaction-demo" id="interactionDemo"><span>Pointer-responsive surface</span><b id="pointerReadout">0, 0</b></div></section>
     </main>
     <aside class="start-menu glass" id="startMenu" aria-hidden="true">
       <div class="start-search"><span>⌕</span><input id="startSearch" placeholder="Search apps, files, settings" autocomplete="off"></div>
       <div class="start-heading"><span>Pinned</span><button class="text-button">All apps ›</button></div>
-      <div class="pinned"><button data-app="System"><b>◈</b><span>System</span></button><button data-app="Terminal"><b>⌘</b><span>Terminal</span></button><button data-app="Research"><b>◎</b><span>Research</span></button><button data-app="Files"><b>▣</b><span>Files</span></button><button data-app="Network"><b>⌁</b><span>Network</span></button><button data-app="Settings"><b>⚙</b><span>Settings</span></button></div>
+      <div class="pinned"><button data-app="System"><b>◈</b><span>System</span></button><button data-app="Jasper"><b>✦</b><span>Jasper Manager</span></button><button data-app="Terminal"><b>⌘</b><span>Terminal</span></button><button data-app="Research"><b>◎</b><span>Research</span></button><button data-app="Files"><b>▣</b><span>Files</span></button><button data-app="Network"><b>⌁</b><span>Network</span></button><button data-app="Settings"><b>⚙</b><span>Settings</span></button></div>
       <div class="start-footer"><span>Chimera User</span><button aria-label="Power">⏻</button></div>
     </aside>
     <nav class="taskbar glass" aria-label="Aurora taskbar">
       <button class="task-start" id="startButton" aria-label="Start"><span>✦</span></button><button class="task-search" id="searchButton">⌕ <span>Search</span></button>
-      <div class="task-apps"><button class="task-app active" data-target="system">◈</button><button class="task-app" data-target="boot">◉</button><button class="task-app" data-target="kernel">⬢</button><button class="task-app" data-target="services">⌘</button></div>
+      <div class="task-apps"><button class="task-app active" data-target="system">◈</button><button class="task-app" data-target="boot">◉</button><button class="task-app" data-target="kernel">⬢</button><button class="task-app" data-target="jasper">✦</button><button class="task-app" data-target="services">⌘</button></div>
       <div class="task-tray"><span id="network">⌁</span><span>◒</span><span id="trayClock"></span></div>
     </nav>
     <div class="snap-preview" id="snapPreview"></div>
