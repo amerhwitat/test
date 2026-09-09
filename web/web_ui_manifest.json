@@ -1,0 +1,15 @@
+{
+  "schema":"chimera-web-ui/v3",
+  "name":"Chimera II Web UI",
+  "integration_hub":"amerhwitat/test",
+  "source_of_truth":"amerhwitat/ChimeraIIOS",
+  "renderer":{"primary":"three.js-webgl","fallback":"dom-glass"},
+  "surfaces":["aurora-desktop","linux-profiles","windows-profiles","terminal","unified-help","cpp-ide","system-dashboard","cpu-isa-visualizer"],
+  "desktop_profiles":"/desktop_profiles.json",
+  "help":{"commands":["man","apropos","whatis","info","help","chimera-help"],"namespaces":["linux","posix","bsd","sysv","bash","zsh","windows","powershell","toolchain","chimera"]},
+  "repositories":[
+    "amerhwitat/ChimeraIIOS","amerhwitat/CPU4096","amerhwitat/CPU4096Simulator","amerhwitat/amerhwitat.github.io","amerhwitat/PDFreaderPY","amerhwitat/nlp","amerhwitat/keygen","amerhwitat/bruteforce","amerhwitat/BizX","amerhwitat/BizXtreme","amerhwitat/general","amerhwitat/VanG","amerhwitat/eth-key-check"
+  ],
+  "security":{"webgl_is_presentation_only":true,"arbitrary_host_shell":false,"arbitrary_host_filesystem":false,"credentials_in_browser":false,"native_desktop_requires_authorized_backend":true},
+  "compatibility":{"existing_command_catalog":"preserve","existing_man_catalog":"migrate","abi":"unchanged"}
+}
