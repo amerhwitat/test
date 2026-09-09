@@ -20,6 +20,12 @@ class ChimeraAPIHandler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True, "system": "Chimera II OS"})
         elif self.path in ("/api/state", "/api/status"):
             self._send(200, self.runtime.state())
+        elif self.path == "/api/boot":
+            self._send(200, self.runtime.state()["boot"])
+        elif self.path == "/api/jasper":
+            self._send(200, self.runtime.jasper.status())
+        elif self.path == "/api/desktop":
+            self._send(200, self.runtime.state()["desktop"])
         elif self.path == "/api/tick":
             self._send(200, self.runtime.tick())
         else:
