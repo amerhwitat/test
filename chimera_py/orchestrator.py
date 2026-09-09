@@ -34,17 +34,33 @@ class ChimeraRuntime:
         self.running = False
 
     def boot(self) -> dict:
+        # Stage 1: firmware/Spitfire must reach 100% before any desktop work.
         self.bootloader.boot(self.kernel.boot)
+        if not self.bootloader.booted:
+            return self.state()
+
+        # Stage 2: prepare the host compositor without launching it yet.
         self.aurora.prepare()
+
+        # Stage 3: Koronos service discovery/readiness.
         for service in self.services.values():
             service.state = "ready"
-        self.services["aurora-wayland"].state = self.aurora.state
-        if self.aurora.launch():
-            self.services["aurora-wayland"].state = "running"
+
         self.running = True
         self.kernel.create_task("koronos-idle", priority=-1)
         self.kernel.create_task("chimera-services", priority=5)
+
+        # Stage 4: Jasper is the authoritative desktop/session gate.
         self.desktop_ready = self.jasper.start()
+        if not self.desktop_ready:
+            self.services["aurora-wayland"].state = "blocked"
+            return self.state()
+
+        # Stage 5: only now may the host compositor launch.
+        if self.aurora.launch():
+            self.services["aurora-wayland"].state = "running"
+        else:
+            self.services["aurora-wayland"].state = self.aurora.state
         return self.state()
 
     def tick(self) -> dict:
