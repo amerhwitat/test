@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>Aurora 3D Desktop — Chimera II</title>
+  <link rel="stylesheet" href="/aurora_3d_desktop.css">
+</head>
+<body>
+  <canvas id="aurora3d" aria-label="Aurora Three.js desktop background"></canvas>
+  <div id="desktop-ui">
+    <header class="topbar glass"><button id="launcher" class="brand">✦ CHIMERA II</button><div id="profile">Aurora / Linux</div><div id="clock"></div></header>
+    <main id="workspace">
+      <section class="glass window hero"><div class="titlebar"><b>◈ Aurora Desktop</b><div><button data-window-action="min">—</button><button data-window-action="max">□</button><button data-window-action="close">×</button></div></div><div class="hero-body"><div><small>SPITFIRE → KORONOS → JASPER → AURORA</small><h1>Chimera II</h1><p>Unified Linux and Windows desktop presentation layer.</p><button class="primary" id="openTerminal">Open Terminal</button> <button id="openHelp">Man / Help</button></div><div class="orb">CII</div></div></section>
+      <section class="glass window app-window" id="terminalWindow"><div class="titlebar"><b>⌘ Terminal</b><button data-window-action="close">×</button></div><pre id="terminalOut">Chimera II Terminal\nLinux/POSIX + Bash/Zsh + Windows CMD + PowerShell\nType: help, man ls, man powershell:Get-Process, desktop windows</pre><form id="terminalForm"><span>chimera@aurora:$</span><input id="terminalInput" autocomplete="off" aria-label="Terminal command"><button>Run</button></form></section>
+      <section class="glass window app-window hidden" id="helpWindow"><div class="titlebar"><b>▤ Unified Man / Help</b><button data-window-action="close">×</button></div><input id="helpSearch" class="search" placeholder="Search Linux, Windows, PowerShell, C++, Chimera II…"><div id="helpResults"></div></section>
+      <section class="glass window app-window hidden" id="filesWindow"><div class="titlebar"><b>▣ Files</b><button data-window-action="close">×</button></div><p>Virtualized Chimera workspace</p><div class="file-grid"><span>📁 projects</span><span>📁 docs</span><span>📁 source</span><span>📄 README.md</span></div></section>
+    </main>
+    <nav class="dock glass"><button id="dockLauncher">✦</button><button data-open="terminalWindow">⌘</button><button data-open="helpWindow">▤</button><button data-open="filesWindow">▣</button><button id="profileButton">◫</button></nav>
+    <aside id="profileMenu" class="glass hidden"><b>Desktop Profiles</b><button data-profile="Aurora / Linux">Aurora / Linux</button><button data-profile="GNOME / Linux">GNOME / Linux</button><button data-profile="KDE Plasma / Linux">KDE Plasma / Linux</button><button data-profile="Xfce / Linux">Xfce / Linux</button><button data-profile="Cinnamon / Linux">Cinnamon / Linux</button><button data-profile="MATE / Linux">MATE / Linux</button><button data-profile="LXQt / Linux">LXQt / Linux</button><button data-profile="Windows 11">Windows 11</button><button data-profile="Windows 10">Windows 10</button><button data-profile="Classic Windows">Classic Windows</button></aside>
+  </div>
+  <script type="module" src="/aurora_3d_desktop.js"></script>
+</body>
+</html>
