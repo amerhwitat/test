@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "dashboard": ["score", "xp", "expedition", "playTime", "peerCount", "rank"],
+  "persistence": {"local": true, "resume": true, "autosaveSeconds": 30},
+  "hallOfFame": {"offline": true, "maxLocalEntries": 100, "authoritativeGlobalScores": false},
+  "peerDiscovery": {"optIn": true, "rawIpPersistence": false, "pseudonymousPeerIds": true},
+  "transport": {"browser": "WebRTCDataChannel", "signaling": "external", "ice": true},
+  "splashAsset": "bizxtreme-aurora-frontier"
+}
