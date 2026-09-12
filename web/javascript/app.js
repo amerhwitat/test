@@ -1,0 +1,1 @@
+document.querySelector('#run').onclick=()=>{const ok=typeof fetch==='function'&&typeof Promise==='function';document.querySelector('#out').textContent=ok?'PASS: Fetch and Promise available':'FAIL: required browser APIs missing';};
