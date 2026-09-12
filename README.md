@@ -2,6 +2,18 @@
 
 `amerhwitat/test` is the host-side consolidation, integration and conformance target for the related Chimera II work. The native source-of-record repositories are preserved separately; this repository provides executable Python adapters, web integration, tests and desktop lifecycle orchestration.
 
+## Complete source-code citation index
+
+| Area | Source |
+|---|---|
+| Python/runtime source | [repository source tree](.) |
+| Tests | [tests and conformance source](.) |
+| Apple shell | [apple/](apple/) |
+| Documentation | [docs/](docs/) |
+| Complete tracked repository | [source tree](.) |
+
+These links are the README-level citations for the maintained code. The repository tree and component documentation provide the detailed file-level source record.
+
 ## Central Apple Objective-C + Flutter implementation
 
 The centralized Apple companion is [`general/Apple-Implementations/test`](https://github.com/amerhwitat/general/tree/master/Apple-Implementations/test). It provides Objective-C/Xcode native integration and Flutter iOS/macOS UI while retaining Python as a host-side research/conformance runtime.
