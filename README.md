@@ -2,6 +2,10 @@
 
 `amerhwitat/test` is the host-side consolidation, integration and conformance target for the related Chimera II work. The native source-of-record repositories are preserved separately; this repository provides executable Python adapters, web integration, tests and desktop lifecycle orchestration.
 
+## Apple application boundary
+
+`apple/project.yml` defines native SwiftUI iOS/iPadOS and macOS targets and is generated with XcodeGen. The Apple shell validates the cross-platform contract without pretending Python itself is an iOS runtime. IPA archive/export requires macOS/Xcode and external signing configuration.
+
 ## Unified startup
 
 ```text
