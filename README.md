@@ -73,6 +73,12 @@ Spitfire and Jasper in this repository are host-side models. Python does not rep
 
 Python 3.8 remains a legacy compatibility lane; current Python 3.14 is the primary target. Node.js 24 LTS is used by CI. QEMU remains the future machine-level virtualization boundary.
 
+## Portfolio 128D + authenticated P2P
+
+This integration target validates the shared 128D semantic state and opt-in peer envelope across the Chimera portfolio. Tests cover deterministic state, peer capabilities, payload hashing, sequencing/replay protection and snapshot/delta compatibility. P2P tests never authorize unsolicited scanning, credential/private-key exchange, arbitrary executable transfer or remote command execution.
+
+See `docs/CHIMERA_128D_P2P_PORTFOLIO.md`.
+
 ## Repository policy
 
 This repository is the integration target. Other source repositories are not modified by the Python consolidation workflow.
