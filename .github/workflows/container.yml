@@ -1,0 +1,15 @@
+name: Container
+
+on:
+  push:
+    paths: ['Dockerfile', '.dockerignore', '.github/workflows/container.yml']
+  pull_request:
+    paths: ['Dockerfile', '.dockerignore', '.github/workflows/container.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag test:ci .
