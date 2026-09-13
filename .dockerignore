@@ -1,0 +1,15 @@
+.git
+.github
+.gitignore
+Dockerfile
+.dockerignore
+__pycache__/
+*.pyc
+node_modules/
+.venv/
+venv/
+build/
+dist/
+*.o
+*.obj
+*.log
