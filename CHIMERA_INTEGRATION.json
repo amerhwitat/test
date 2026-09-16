@@ -1,0 +1,1 @@
+{"$schema":"CHM-APP-INTEGRATION-1","application":"test","target":"Chimera II OS","integration_points":["CI","Universal Execution API","Aurora diagnostics"],"purpose":"Compatibility and regression test target for Chimera integration."}
