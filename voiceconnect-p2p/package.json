@@ -16,9 +16,9 @@
     "build:win:directx": "electron-builder --win nsis msi portable --config electron-builder.directx.cjs",
     "build:win:opengl": "electron-builder --win nsis msi portable --config electron-builder.opengl.cjs"
   },
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22.12.0" },
   "dependencies": { "ws": "^8.18.0" },
-  "devDependencies": { "electron": "41.7.1", "electron-builder": "26.18.0" },
+  "devDependencies": { "electron": "41.10.7", "electron-builder": "26.18.0" },
   "build": {
     "appId": "org.voiceconnect.p2p",
     "productName": "VoiceConnect P2P",
