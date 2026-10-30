@@ -89,3 +89,12 @@ Or run them from Command Prompt. Build macOS packages on macOS and Linux package
 The cross-platform GitHub Actions workflow builds Windows (NSIS + portable), Linux (AppImage + .deb), and macOS (DMG + ZIP) packages and uploads each platform's outputs as workflow artifacts. It also compiles the Java, Python and C++ UTF-8 chat companion clients (not native WebRTC media implementations).
 
 To publish a versioned GitHub Release, push a tag named `voiceconnect-vX.Y.Z` (for example `voiceconnect-v0.3.1`). The release workflow rebuilds all three desktop platforms, collects their outputs, generates `SHA256SUMS.txt`, and publishes the assets to the repository's GitHub Releases page. A release is only published if every platform package job succeeds. Do not create a release tag until the validation workflow is green.
+
+
+## Multi-user meeting lobby and screen sharing
+
+The lobby is room-based and supports up to eight concurrent participants in a peer-to-peer mesh. Participants joining the same room are automatically introduced to one another. Each participant may enable their camera and microphone, mute audio, disable video, and send UTF-8 chat messages to the room. Use a room name known to the invitees; production deployments should add authenticated invitations and room access controls.
+
+The **Share screen** control uses the browser/Electron screen-capture permission prompt. A participant can share a display/window/tab, and the selected video track is renegotiated to each connected peer. Selecting **Stop sharing** or ending the operating-system share prompt restores the camera track when the camera is active. Screen audio capture is not included in this iteration. Screen capture requires a secure context (HTTPS or localhost) and explicit user permission.
+
+This is a full-mesh design: each participant sends media to each other participant. Bandwidth and CPU use grow with room size; eight is a conservative demo cap, not an SFU-scale architecture. For larger meetings, deploy an SFU such as mediasoup, LiveKit or Janus, with authenticated signaling and TURN.
