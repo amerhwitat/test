@@ -47,7 +47,7 @@ resource "hcloud_server" "voiceconnect" {
   location    = var.location
   ssh_keys    = [hcloud_ssh_key.deploy.id]
   firewall_ids = [hcloud_firewall.voiceconnect.id]
-  user_data   = templatefile("${path.module}/cloud-init.yaml.tftpl", { deploy_user = var.deploy_user })
+  user_data   = templatefile("${path.module}/cloud-init.yaml.tftpl", { deploy_user = var.deploy_user, ssh_public_key = var.ssh_public_key })
   labels = { app = "voiceconnect", managed_by = "terraform" }
 }
 
