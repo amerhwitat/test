@@ -572,7 +572,7 @@ shareScreenBtn.addEventListener("click", async () => {
   catch (err) { status(err.message, !!roomName); }
 });
 
-function cleanupRoom(){for(const id of[...peerConnections.keys()])removePeer(id);peerProfiles.clear();if(screenStream){screenStream.getTracks().forEach(t=>t.stop());screenStream=null;} $("localScreenPreview").srcObject=null;$("localScreenPreview").hidden=true;shareScreenBtn.disabled=true;shareScreenBtn.textContent="Share screen";roomName=null;joinBtn.disabled=false;leaveBtn.disabled=true;roomInput.disabled=false;$("saveProfileBtn").disabled=true;status("Offline");updatePeerCount();}
+function cleanupRoom(){for(const id of[...peerConnections.keys()])removePeer(id);peerProfiles.clear();if(screenStream){screenStream.getTracks().forEach(t=>t.stop());screenStream=null;}if(window.voiceConnectDesktop?.revokeMediaConsent)window.voiceConnectDesktop.revokeMediaConsent("screen").catch(error=>console.warn("Could not revoke screen-share consent",error)); $("localScreenPreview").srcObject=null;$("localScreenPreview").hidden=true;shareScreenBtn.disabled=true;shareScreenBtn.textContent="Share screen";roomName=null;joinBtn.disabled=false;leaveBtn.disabled=true;roomInput.disabled=false;$("saveProfileBtn").disabled=true;status("Offline");updatePeerCount();}
 function leaveRoom(){if(screenStream)stopScreenShare();send({type:"leave"});socket?.close();socket=null;cleanupRoom();}
 joinBtn.addEventListener("click",async()=>{try{joinBtn.disabled=true;status("Connecting…");await connectSignaling();}catch(err){status(err.message);joinBtn.disabled=false;socket?.close();socket=null;}});
 leaveBtn.addEventListener("click",leaveRoom);
