@@ -109,7 +109,7 @@ async function startMedia(){
   localStream=await navigator.mediaDevices.getUserMedia({audio,video});
   localVideo.srcObject=localStream;
   for(const [id,{pc}] of peerConnections){for(const track of localStream.getTracks())pc.addTrack(track,localStream);const offer=await pc.createOffer();await pc.setLocalDescription(offer);signal(id,{description:pc.localDescription});}
-  $("mediaState").textContent="Camera & mic active";muteBtn.disabled=cameraBtn.disabled=shareScreenBtn.disabled=false;startMediaBtn.disabled=true;await refreshDevices();
+  $("mediaState").textContent=[allowCamera?"Camera":"",allowMicrophone?"microphone":""].filter(Boolean).join(" & ")+" active";muteBtn.disabled=!allowMicrophone;cameraBtn.disabled=!allowCamera;shareScreenBtn.disabled=false;startMediaBtn.disabled=true;await refreshDevices();
 }
 async function refreshDevices(){if(!navigator.mediaDevices?.enumerateDevices)return;const devices=await navigator.mediaDevices.enumerateDevices();for(const[kind,id]of[["videoinput","cameraSelect"],["audioinput","micSelect"]]){const select=$(id),selected=select.value;select.replaceChildren(new Option(kind==="videoinput"?"Default camera":"Default microphone",""));devices.filter(d=>d.kind===kind).forEach((d,i)=>select.add(new Option(d.label||kind+" "+(i+1),d.deviceId)));if([...select.options].some(o=>o.value===selected))select.value=selected;}}
 
