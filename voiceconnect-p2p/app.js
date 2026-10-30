@@ -91,7 +91,8 @@ function makePeerCard(id, data = {}) {
   head.append(avatar,label);
   const state = document.createElement("span"); state.className = "peer-connection-state"; state.textContent = "Discovered · connecting";
   const video = document.createElement("video"); video.autoplay = true; video.playsInline = true;
-  const remember=document.createElement("button"); remember.type="button"; remember.className="secondary"; remember.textContent="Remember peer"; remember.disabled=!data.addressShared; remember.addEventListener("click",()=>rememberPeer(id).catch(error=>status(error.message)));\n  card.append(head,state,video,remember); peersNode.append(card);
+  const remember=document.createElement("button"); remember.type="button"; remember.className="secondary"; remember.textContent="Remember peer"; remember.disabled=!data.addressShared; remember.addEventListener("click",()=>rememberPeer(id).catch(error=>status(error.message)));
+  card.append(head,state,video,remember); peersNode.append(card);
   return { card, video, label, avatar, remember, state };
 }
 function updatePeerCard(id, data) {
