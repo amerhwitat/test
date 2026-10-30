@@ -119,3 +119,26 @@ jobs:
             voiceconnect-p2p/clients/python/requirements.txt
           if-no-files-found: error
           retention-days: 30
+
+  browser-extensions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Chrome, Edge and Firefox extension manifests
+        run: |
+          node -e "for (const p of ['voiceconnect-p2p/extensions/chromium/manifest.json','voiceconnect-p2p/extensions/firefox/manifest.json']) { const m=require('./'+p); if(m.manifest_version!==3 || !m.action?.default_popup) process.exit(1); console.log(p, m.name, m.version); }"
+          node --check voiceconnect-p2p/extensions/chromium/popup.js
+          node --check voiceconnect-p2p/extensions/firefox/popup.js
+      - name: Package browser extensions
+        run: |
+          cd voiceconnect-p2p/extensions
+          zip -r ../voiceconnect-chrome-edge-extension.zip chromium
+          zip -r ../voiceconnect-firefox-extension.zip firefox
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voiceconnect-browser-extensions
+          path: |
+            voiceconnect-p2p/voiceconnect-chrome-edge-extension.zip
+            voiceconnect-p2p/voiceconnect-firefox-extension.zip
+          if-no-files-found: error
+          retention-days: 90
