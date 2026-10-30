@@ -10,31 +10,67 @@ if (inviteParams.get("room")) $("room").value = inviteParams.get("room");
 if (inviteParams.get("invite")) $("inviteToken").value = inviteParams.get("invite");
 const userGuid = savedProfile.userGuid || crypto.randomUUID();
 localStorage.setItem("vc-profile", JSON.stringify({...savedProfile, userGuid}));
-let muted = false, cameraOff = false;
+let muted = false, cameraOff = false, encryptionKey = null;
 const defaultIceServers = [{ urls: "stun:stun.l.google.com:19302" }];
 let rtcConfig = { iceServers: defaultIceServers };
 $("userGuid").textContent = userGuid;
 $("nickname").value = savedProfile.nickname || "";
 $("savePeer").checked = savedProfile.savePeer === true;
-if (savedProfile.avatar) { avatarData = savedProfile.avatar; const preview=$("avatarPreview"); preview.src=avatarData; preview.hidden=false; }
+if (savedProfile.avatar) { avatarData = savedProfile.avatar; const preview=$("avatarPreview"); preview.src=avatarData; preview.hidden=false; }\nif ($("shareAddress")) $("shareAddress").checked = savedProfile.shareAddress === true;
 function status(text, online = false) { $("statusText").textContent = text; $("statusDot").parentElement.classList.toggle("online", online); }
 function send(data) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data)); }
 function signal(to, payload) { send({ type: "signal", to, payload }); }
-function profile() { return { userGuid, nickname: $("nickname").value.trim().slice(0,32) || "Guest", avatar: avatarData, saveLocally: $("savePeer").checked }; }
-function sendProfile() { const p = profile(); localStorage.setItem("vc-profile", JSON.stringify({ userGuid, nickname:p.nickname, avatar:p.avatar, savePeer:p.saveLocally })); send({ type:"profile", ...p }); }
+function profile() { return { userGuid, nickname: $("nickname").value.trim().slice(0,32) || "Guest", avatar: avatarData, saveLocally: $("savePeer").checked, shareAddress: $("shareAddress")?.checked === true }; }
+function sendProfile() { const p = profile(); localStorage.setItem("vc-profile", JSON.stringify({ userGuid, nickname:p.nickname, avatar:p.avatar, savePeer:p.saveLocally, shareAddress:p.shareAddress })); send({ type:"profile", ...p }); }
+
+const knownPeers = new Map();
+function renderKnownPeers() {
+  const host = $("knownPeers");
+  if (!host) return;
+  host.replaceChildren();
+  $("knownPeerCount").textContent = knownPeers.size + (knownPeers.size === 1 ? " saved" : " saved");
+  if (!knownPeers.size) { const p=document.createElement("p"); p.className="hint"; p.textContent="No remembered peers yet."; host.append(p); return; }
+  for (const peer of knownPeers.values()) {
+    const row=document.createElement("div"); row.className="known-peer-row";
+    const label=document.createElement("span"); label.textContent=(peer.nickname||"Peer")+" · "+peer.observedIp;
+    const remove=document.createElement("button"); remove.type="button"; remove.className="secondary"; remove.textContent="Forget";
+    remove.addEventListener("click",async()=>{ if(window.voiceConnectDesktop?.forgetPeer) await window.voiceConnectDesktop.forgetPeer(peer.userGuid); else { const list=JSON.parse(localStorage.getItem("vc-known-peers")||"[]").filter(x=>x.userGuid!==peer.userGuid); localStorage.setItem("vc-known-peers",JSON.stringify(list)); } knownPeers.delete(peer.userGuid); renderKnownPeers(); });
+    row.append(label,remove); host.append(row);
+  }
+}
+async function loadKnownPeers() {
+  try {
+    const list=window.voiceConnectDesktop?.listKnownPeers ? await window.voiceConnectDesktop.listKnownPeers() : JSON.parse(localStorage.getItem("vc-known-peers")||"[]");
+    for(const peer of list) if(peer?.userGuid && peer?.observedIp) knownPeers.set(peer.userGuid,peer);
+  } catch(error) { console.warn("Known peer cache unavailable",error); }
+  renderKnownPeers();
+}
+async function rememberPeer(id) {
+  const peer=peerProfiles.get(id);
+  if(!peer?.addressShared || !peer.observedIp) { status("This participant has not consented to share an IP address."); return; }
+  const record={peerId:id,userGuid:peer.userGuid||id,nickname:peer.nickname||"Peer",avatar:peer.avatar||"",observedIp:peer.observedIp,room:roomName||""};
+  if(window.voiceConnectDesktop?.rememberPeer) {
+    const result=await window.voiceConnectDesktop.rememberPeer(record);
+    if(!result?.ok) throw new Error(result?.error||"Could not save this peer");
+  } else {
+    const list=JSON.parse(localStorage.getItem("vc-known-peers")||"[]").filter(x=>x.userGuid!==record.userGuid);
+    list.unshift({...record,lastSeen:new Date().toISOString()}); localStorage.setItem("vc-known-peers",JSON.stringify(list.slice(0,500)));
+  }
+  knownPeers.set(record.userGuid,{...record,lastSeen:new Date().toISOString()}); renderKnownPeers();
+  status("Saved consenting peer to your local known-peers JSON cache.");
+}
+
 function makePeerCard(id, data = {}) {
   const card = document.createElement("article"); card.className = "peer-card";
   const head = document.createElement("div"); head.className = "peer-head";
   const avatar = document.createElement("img"); avatar.className = "peer-avatar"; avatar.alt = ""; avatar.src = data.avatar || "avatar.svg";
   const label = document.createElement("div"); label.className = "peer-label"; label.textContent = (data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8);
   head.append(avatar,label);
-  const video = document.createElement("video"); video.autoplay = true; video.playsInline = true;
-  card.append(head,video); peersNode.append(card);
-  return { card, video, label, avatar };
+  const video = document.createElement("video"); video.autoplay = true; video.playsInline = true;\n  const remember=document.createElement("button"); remember.type="button"; remember.className="secondary"; remember.textContent="Remember peer"; remember.disabled=!data.addressShared; remember.addEventListener("click",()=>rememberPeer(id).catch(error=>status(error.message)));\n  card.append(head,video,remember); peersNode.append(card);\n  return { card, video, label, avatar, remember };
 }
 function updatePeerCard(id, data) {
   peerProfiles.set(id,data);
-  const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8); item.avatar.src=data.avatar || "avatar.svg"; }
+  const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8); item.avatar.src=data.avatar || "avatar.svg"; item.remember.disabled=!data.addressShared; }
 }
 async function createPeer(id, initiator, data = {}) {
   if(peerConnections.has(id)) return peerConnections.get(id).pc;
@@ -180,10 +216,10 @@ async function connectSignaling(){
       for(const p of msg.peers){peerProfiles.set(p.peerId,p);await createPeer(p.peerId,true,p);}sendProfile();resolve();
     }
     if(msg.type==="peer-joined"){peerProfiles.set(msg.peer.peerId,msg.peer);status("Peer discovered · "+msg.peer.nickname,true);await createPeer(msg.peer.peerId,false,msg.peer);}
-    if(msg.type==="peer-profile")updatePeerCard(msg.peer.peerId,msg.peer);
+    if(msg.type==="peer-profile")updatePeerCard(msg.peer.peerId,msg.peer);\n    if(msg.type==="peer-exchange"){for(const peer of msg.peers||[]){peerProfiles.set(peer.peerId,peer);updatePeerCard(peer.peerId,peer);}}
     if(msg.type==="peer-left"){removePeer(msg.peerId);peerProfiles.delete(msg.peerId);status("Peer left · "+roomName,true);}
     if(msg.type==="signal")await handleSignal(msg.from,msg.payload);
-    if(msg.type==="chat")renderChat(msg.message);
+    if(msg.type==="chat")await receiveChatMessage(msg.message);
     if(msg.type==="profile-saved")$("profileStatus").textContent=msg.saved?"Profile and observed IP saved to local JSON registry.":"Profile active for this session; persistent IP logging is off.";
     if(msg.type==="error")status(msg.message);
   };
@@ -272,7 +308,7 @@ leaveBtn.addEventListener("click",leaveRoom);
 startMediaBtn.addEventListener("click",async()=>{try{await startMedia();}catch(err){status(err.message);}});
 muteBtn.addEventListener("click",()=>{muted=!muted;localStream?.getAudioTracks().forEach(t=>t.enabled=!muted);muteBtn.textContent=muted?"Unmute mic":"Mute mic";});
 cameraBtn.addEventListener("click",()=>{cameraOff=!cameraOff;localStream?.getVideoTracks().forEach(t=>t.enabled=!cameraOff);cameraBtn.textContent=cameraOff?"Turn camera on":"Turn camera off";});
-$("saveProfileBtn").addEventListener("click",()=>{sendProfile();sendDirectProfile();$("profileStatus").textContent="Profile updated on this device and sent to active connections.";});
+$("saveProfileBtn").addEventListener("click",()=>{sendProfile();sendDirectProfile();$("profileStatus").textContent="Profile updated. Your IP is shared only if you explicitly enabled address sharing.";});\n$("shareAddress").addEventListener("change",()=>{const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:p.avatar,savePeer:p.saveLocally,shareAddress:p.shareAddress}));if(roomName)sendProfile();});
 $("nickname").addEventListener("change",()=>{const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:p.avatar,savePeer:p.saveLocally}));if(roomName)sendProfile();sendDirectProfile();});
 $("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.[0];if(!file)return;
   if(file.size>12*1024*1024)return status("Choose an image smaller than 12 MB");
