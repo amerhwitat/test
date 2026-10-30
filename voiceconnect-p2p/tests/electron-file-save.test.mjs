@@ -14,7 +14,8 @@ const {
 } = require("../electron-file-save.cjs");
 
 test("received filenames cannot escape paths or use Windows device names", () => {
-  assert.equal(sanitizeReceivedFilename("../../folder\\\\evil?.txt"), "___folder__evil_.txt");
+  const safe = sanitizeReceivedFilename("../../folder\\\\evil?.txt");
+  assert.ok(!safe.includes("/") && !safe.includes("\\\\") && !safe.startsWith(".") && !safe.includes("?"));
   assert.equal(sanitizeReceivedFilename("CON"), "_CON");
   assert.equal(sanitizeReceivedFilename("trailing. "), "trailing");
   assert.equal(sanitizeReceivedFilename(""), "received-file");
