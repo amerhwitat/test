@@ -328,3 +328,23 @@ Transfer flow:
 Current limits: 25 MiB per file; up to four simultaneous incoming offers and 50 MiB aggregate reserved incoming data. The receiver must be connected at the same time; there is no offline mailbox, cloud staging, resume-after-disconnect, folder transfer, or global peer routing. The signaling server does not store file payloads. File metadata (name, size, type and digest) is visible to the two endpoints, and the receiver should accept files only from trusted contacts. SHA-256 detects accidental/corrupt transfer; it does not independently authenticate the sender beyond the established peer connection. Browser fallback downloads may use the browser's configured download folder rather than an interactive directory picker.
 
 The Windows desktop's native Save dialog writes only after the user chooses a destination. Treat received files as untrusted: scan them with your platform security tools before opening them.
+
+
+## File safety and malware scanning
+
+VoiceConnect does not scan received files and does not certify them as safe. A successful SHA-256 check proves that the received bytes match the sender's advertised digest; it does **not** prove that the sender is trusted or that the file is benign. The MIME type and filename are sender-controlled metadata and must not be treated as trustworthy.
+
+Before opening or extracting a received file:
+
+- Accept files only from a person you recognize and were expecting to receive a file from. Reject unexpected offers.
+- Save to a normal user-controlled folder, then scan the saved file with your operating system's current endpoint protection. On Windows, use Microsoft Defender or your managed endpoint security product and keep security intelligence current. On macOS, keep XProtect/Gatekeeper and system updates current. On Linux, use your distribution's security tooling or an organization-approved scanner (for example, ClamAV where appropriate).
+- Do not disable real-time protection to open a file. Do not bypass SmartScreen, Gatekeeper, browser download warnings or quarantine prompts.
+- Treat executable installers, scripts, macro-enabled documents, disk images, archives and password-protected archives as high risk. Do not run or enable macros in an unexpected attachment. Scan archives before extraction where supported, and inspect extracted contents before opening.
+- If a file is unexpected, suspicious, or flagged, leave it unopened and delete/quarantine it. Report the sender or incident through your organization's security process.
+- Keep the app and operating system updated. File transfer is peer-to-peer, but the sender can still transmit malicious content directly to the receiver.
+
+VoiceConnect currently has no integrated antivirus engine, content-disarm-and-reconstruction service, sandbox detonation, reputation lookup, or automatic quarantine. It does not inspect the content of files. This section is user guidance, not a malware-detection guarantee.
+
+## File-transfer test plan and release gate
+
+See [FILE_TRANSFER_TEST_PLAN.md](FILE_TRANSFER_TEST_PLAN.md) for repeatable two-device, interruption, integrity, Windows Save As/overwrite, and browser save-picker test cases. These are acceptance requirements; a written test plan is not evidence that the tests have passed. CI unit tests cover bounded chunk validation/reassembly only. The hosted workflow does not replace two physical devices or real browser/Windows file-dialog testing.
