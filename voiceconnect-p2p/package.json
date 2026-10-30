@@ -12,7 +12,7 @@
     "build:win": "electron-builder --win nsis msi portable",
     "build:linux": "electron-builder --linux AppImage deb",
     "build:mac": "electron-builder --mac dmg zip",
-    "test": "node --check server.js && node --check app.js && node --check electron-main.cjs && node --check preload.cjs && node --test tests/*.test.mjs",
+    "test": "node --check server.js && node --check app.js && node --check chat-crypto.js && node --check electron-main.cjs && node --check preload.cjs && node --test tests/*.test.mjs",
     "build:win:directx": "electron-builder --win nsis msi portable --config electron-builder.directx.cjs",
     "build:win:opengl": "electron-builder --win nsis msi portable --config electron-builder.opengl.cjs"
   },
@@ -45,7 +45,7 @@
         "portable"
       ],
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true
     },
     "linux": {
       "target": [
