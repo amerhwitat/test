@@ -97,7 +97,7 @@ function makePeerCard(id, data = {}) {
   const card = document.createElement("article"); card.className = "peer-card";
   const head = document.createElement("div"); head.className = "peer-head";
   const avatar = document.createElement("img"); avatar.className = "peer-avatar"; avatar.alt = ""; avatar.src = data.avatar || "avatar.svg";
-  const label = document.createElement("div"); label.className = "peer-label"; label.textContent = (data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : "");
+  const label = document.createElement("div"); label.className = "peer-label"; label.textContent = (data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : "") + (data.addressShared && data.observedIp ? " · " + data.observedIp : "");
   head.append(avatar,label);
   const state = document.createElement("span"); state.className = "peer-connection-state"; state.textContent = "Discovered · connecting";
   const video = document.createElement("video"); video.autoplay = true; video.playsInline = true;
@@ -110,7 +110,7 @@ function updatePeerCard(id, data) {
   if (data.profileUpdated && data.addressShared === false && data.userGuid) {
     forgetKnownPeer(data.userGuid).catch(error => console.warn("Could not apply peer address-sharing revocation", error));
   }
-  const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : ""); item.avatar.src=data.avatar || "avatar.svg"; item.remember.disabled=!data.addressShared; }
+  const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : "") + (data.addressShared && data.observedIp ? " · " + data.observedIp : ""); item.avatar.src=data.avatar || "avatar.svg"; item.remember.disabled=!data.addressShared; }
 }
 async function createPeer(id, initiator, data = {}) {
   if(peerConnections.has(id)) return peerConnections.get(id).pc;
