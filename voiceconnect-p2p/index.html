@@ -1,57 +1,21 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#071522">
-  <title>VoiceConnect P2P</title>
-  <link rel="stylesheet" href="/styles.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#071522"><title>VoiceConnect P2P</title><link rel="stylesheet" href="/styles.css"></head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="VoiceConnect home"><span class="brand-mark">VC</span><span>VoiceConnect <small>P2P</small></span></a>
-    <span class="status"><i id="statusDot"></i><span id="statusText">Offline</span></span>
-  </header>
-  <main>
-    <section class="hero">
-      <p class="eyebrow">DIRECT MEDIA · CAMERA · MICROPHONE</p>
-      <h1>Talk face to face.<br><em>Peer to peer.</em></h1>
-      <p class="intro">Create a room or join a friend. Audio and video flow directly between browsers whenever the network allows it.</p>
-    </section>
-    <section class="connect panel">
-      <div class="room-entry">
-        <label for="room">Room name</label>
-        <input id="room" maxlength="64" value="open-room-01" autocomplete="off" spellcheck="false">
-      </div>
-      <div class="actions">
-        <button id="joinBtn" class="primary">Join room</button>
-        <button id="leaveBtn" class="secondary" disabled>Leave</button>
-      </div>
-      <p class="hint">Share the same room name with the people you want to call.</p>
-    </section>
-    <section class="controls panel">
-      <div class="section-heading"><div><p class="eyebrow">YOUR DEVICES</p><h2>Media controls</h2></div><span id="mediaState" class="pill">Not sharing</span></div>
-      <div class="device-grid">
-        <div><label for="cameraSelect">Camera</label><select id="cameraSelect"><option value="">Default camera</option></select></div>
-        <div><label for="micSelect">Microphone</label><select id="micSelect"><option value="">Default microphone</option></select></div>
-      </div>
-      <div class="actions">
-        <button id="startMediaBtn" class="primary">Enable camera & mic</button>
-        <button id="muteBtn" class="secondary" disabled>Mute mic</button>
-        <button id="cameraBtn" class="secondary" disabled>Turn camera off</button>
-      </div>
-      <video id="localVideo" class="local-video" autoplay playsinline muted></video>
-    </section>
-    <section class="peers-section">
-      <div class="section-heading"><div><p class="eyebrow">LIVE ROOM</p><h2>Participants</h2></div><span id="peerCount" class="pill">0 peers</span></div>
-      <div id="peers" class="peer-grid"><div class="empty panel">No one here yet. Join a room and invite a friend.</div></div>
-    </section>
-    <section class="notice">
-      <strong>Network note</strong>
-      <p>This prototype uses WebRTC for direct peer media and a small WebSocket service only for room discovery and connection negotiation. STUN helps peers discover public routes; some networks require a TURN relay. Configure TURN credentials for reliable calls across restrictive NATs. Use HTTPS in deployment—browsers restrict camera and microphone access to secure origins (localhost is allowed).</p>
-    </section>
-  </main>
-  <footer>VoiceConnect P2P · Independent implementation · Not affiliated with Microsoft DirectPlay</footer>
-  <script type="module" src="/app.js"></script>
-</body>
-</html>
+<header class="topbar"><a class="brand" href="/" aria-label="VoiceConnect home"><span class="brand-mark">VC</span><span>VoiceConnect <small>P2P</small></span></a><span class="status"><i id="statusDot"></i><span id="statusText">Offline</span></span></header>
+<main>
+<section class="hero"><p class="eyebrow">DIRECT MEDIA · CAMERA · MICROPHONE</p><h1>Talk face to face.<br><em>Peer to peer.</em></h1><p class="intro">Discover participants automatically in a shared room. Audio and video travel directly between browsers when network conditions permit.</p></section>
+<section class="connect panel"><div class="room-entry"><label for="room">Room name</label><input id="room" maxlength="64" value="open-room-01" autocomplete="off" spellcheck="false"></div><div class="actions"><button id="joinBtn" class="primary">Join & discover peers</button><button id="leaveBtn" class="secondary" disabled>Leave</button></div><p class="hint">Peers in this room are discovered automatically; no port scanning or unsolicited IP probing is performed.</p></section>
+<section class="controls panel"><div class="section-heading"><div><p class="eyebrow">YOUR IDENTITY</p><h2>Profile & privacy</h2></div></div>
+<div class="profile-grid"><div><label for="nickname">Nickname</label><input id="nickname" maxlength="32" placeholder="Your display name"></div><div><label for="avatarFile">Avatar image</label><input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div></div>
+<label class="consent"><input id="savePeer" type="checkbox"><span>Save my nickname, avatar and observed connection IP to this host's local <code>data/peers.json</code> file. I understand this is sensitive connection metadata.</span></label>
+<p class="hint">IP addresses are observed by the signaling host, not reliably exposed by WebRTC to browsers. They are not shown to other participants. Uncheck this to avoid persistent IP logging.</p>
+<div class="actions"><button id="saveProfileBtn" class="secondary" disabled>Update profile</button></div><div id="profileStatus" class="hint" role="status"></div></section>
+<section class="controls panel"><div class="section-heading"><div><p class="eyebrow">YOUR DEVICES</p><h2>Media controls</h2></div><span id="mediaState" class="pill">Not sharing</span></div>
+<div class="device-grid"><div><label for="cameraSelect">Camera</label><select id="cameraSelect"><option value="">Default camera</option></select></div><div><label for="micSelect">Microphone</label><select id="micSelect"><option value="">Default microphone</option></select></div></div>
+<div class="actions"><button id="startMediaBtn" class="primary">Enable camera & mic</button><button id="muteBtn" class="secondary" disabled>Mute mic</button><button id="cameraBtn" class="secondary" disabled>Turn camera off</button></div><video id="localVideo" class="local-video" autoplay playsinline muted></video></section>
+<section class="peers-section"><div class="section-heading"><div><p class="eyebrow">LIVE ROOM</p><h2>Discovered participants</h2></div><span id="peerCount" class="pill">0 peers</span></div><div id="peers" class="peer-grid"><div class="empty panel">Join a room to discover participants.</div></div></section>
+<section class="controls panel"><div class="section-heading"><div><p class="eyebrow">NETWORK ROUTING</p><h2>Proxy, firewall & VPN</h2></div></div><p class="hint">Browser WebRTC media uses ICE, STUN and TURN. HTTP/SOCKS proxy settings generally affect signaling or app traffic, not arbitrary WebRTC UDP media. For restrictive networks, configure a TURN server reachable over TLS/TCP port 443. For a full VPN tunnel, use an OS VPN (for example WireGuard/OpenVPN) or a managed native VPN adapter; a web page cannot safely install or embed privileged VPN drivers.</p><div class="device-grid"><div><label for="turnUrl">TURN URL (use turns:...:443 for TLS)</label><input id="turnUrl" placeholder="turns:turn.example.com:443?transport=tcp"></div><div><label for="turnUser">TURN username</label><input id="turnUser" autocomplete="off"></div><div><label for="turnPass">TURN credential</label><input id="turnPass" type="password" autocomplete="new-password"></div></div><div class="actions"><button id="applyNetworkBtn" class="secondary">Apply ICE configuration</button></div><p class="hint">Use short-lived TURN credentials from a trusted backend in production; do not store permanent TURN secrets in browser local storage.</p></section>
+<section class="notice"><strong>Privacy & network note</strong><p>Only peers sharing a room are discovered. The signaling server sees the connecting IP; optional local registry persistence is explicit. WebRTC media is encrypted in transit. TURN relays media when direct paths fail; it does not decrypt and mix streams. Deploy with HTTPS/WSS, authentication, room secrets, rate limits and an authenticated TURN credential service.</p></section>
+</main><footer>VoiceConnect P2P · Independent implementation · Not affiliated with Microsoft DirectPlay</footer><script type="module" src="/app.js"></script>
+</body></html>
