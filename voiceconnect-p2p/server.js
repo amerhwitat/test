@@ -37,6 +37,21 @@ function observedIp(req) {
 }
 const server = http.createServer(async (req, res) => {
   try {
+    const requestUrl = new URL(req.url, "http://localhost");
+    if (requestUrl.pathname === "/api/ice-servers" && req.method === "GET") {
+      const turnUrl = process.env.TURN_URL;
+      const turnSecret = process.env.TURN_SHARED_SECRET;
+      const iceServers = [{ urls: process.env.STUN_URL || "stun:stun.l.google.com:19302" }];
+      if (turnUrl && turnSecret) {
+        const expiry = Math.floor(Date.now() / 1000) + 3600;
+        const username = `${expiry}:${crypto.randomUUID()}`;
+        const credential = createHmac("sha1", turnSecret).update(username).digest("base64");
+        iceServers.push({ urls: turnUrl.split(",").map(value => value.trim()), username, credential });
+      }
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ iceServers, turnConfigured: Boolean(turnUrl && turnSecret), credentialTtlSeconds: 3600 }));
+      return;
+    }
     const pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
     const requested = pathname === "/" ? "/index.html" : pathname;
     const file = normalize(join(root, requested));
