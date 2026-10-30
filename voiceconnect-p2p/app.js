@@ -83,8 +83,14 @@ function makeDirectPeer(initiator){
   pc.onconnectionstatechange=()=>directStatus("Direct connection: "+pc.connectionState);
   if(initiator)attachDirectDataChannel(pc.createDataChannel("voiceconnect-chat"));
   else pc.ondatachannel=event=>attachDirectDataChannel(event.channel);
-  if(localStream)for(const track of localStream.getTracks())pc.addTrack(track,localStream);
-  if(screenStream)for(const track of screenStream.getVideoTracks())pc.addTrack(track,screenStream);
+  // Reserve a video media section up front so later screen sharing can replace
+  // the track without a second signaling round-trip.
+  const videoTransceiver=pc.addTransceiver("video",{direction:"sendrecv"});
+  if(localStream)for(const track of localStream.getTracks()){
+    if(track.kind==="video")await videoTransceiver.sender.replaceTrack(track);
+    else pc.addTrack(track,localStream);
+  }
+  if(screenStream)for(const track of screenStream.getVideoTracks())await videoTransceiver.sender.replaceTrack(track);
   return pc;
 }
 async function waitForIceGathering(pc){
@@ -181,7 +187,12 @@ async function startMedia(){
   const video=allowCamera?(videoId?{deviceId:{exact:videoId},width:{ideal:1280},height:{ideal:720}}:{width:{ideal:1280},height:{ideal:720}}):false;
   localStream=await navigator.mediaDevices.getUserMedia({audio,video});
   localVideo.srcObject=localStream;
-  if(directPeerConnection)for(const track of localStream.getTracks())directPeerConnection.addTrack(track,localStream);
+  if(directPeerConnection)for(const track of localStream.getTracks()){
+    if(track.kind==="video"){
+      const sender=directPeerConnection.getSenders().find(s=>s.track?.kind==="video"||s.track===null);
+      if(sender)await sender.replaceTrack(track);else directPeerConnection.addTrack(track,localStream);
+    }else directPeerConnection.addTrack(track,localStream);
+  }
   for(const [id,{pc}] of peerConnections){for(const track of localStream.getTracks())pc.addTrack(track,localStream);const offer=await pc.createOffer();await pc.setLocalDescription(offer);signal(id,{description:pc.localDescription});}
   $("mediaState").textContent=[allowCamera?"Camera":"",allowMicrophone?"microphone":""].filter(Boolean).join(" & ")+" active";muteBtn.disabled=!allowMicrophone;cameraBtn.disabled=!allowCamera;shareScreenBtn.disabled=false;startMediaBtn.disabled=true;await refreshDevices();
 }
