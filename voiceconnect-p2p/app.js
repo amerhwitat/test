@@ -60,7 +60,15 @@ async function handleSignal(from,payload){
     else{const q=pendingCandidates.get(from)||[];q.push(payload.candidate);pendingCandidates.set(from,q);}
   }
 }
-function connectSignaling(){return new Promise((resolve,reject)=>{
+async function connectSignaling(){
+  try {
+    const response = await fetch("/api/ice-servers", { cache: "no-store" });
+    if (response.ok) {
+      const config = await response.json();
+      rtcConfig = { iceServers: config.iceServers || defaultIceServers };
+    }
+  } catch (err) { console.warn("Could not load server ICE configuration", err); }
+  return new Promise((resolve,reject)=>{
   const scheme=location.protocol==="https:"?"wss:":"ws:";
   socket=new WebSocket(scheme+"//"+location.host+"/signal");
   const timeout=setTimeout(()=>reject(new Error("Signaling server timed out")),10000);
