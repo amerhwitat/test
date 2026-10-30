@@ -9,7 +9,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "desktop": "electron .",
-    "build:win": "electron-builder --win nsis portable",
+    "build:win": "electron-builder --win nsis msi portable",
     "build:linux": "electron-builder --linux AppImage deb",
     "build:mac": "electron-builder --mac dmg zip",
     "test": "node --check server.js && node --check app.js && node --check electron-main.cjs"
@@ -39,6 +39,7 @@
     "win": {
       "target": [
         "nsis",
+        "msi",
         "portable"
       ]
     },
