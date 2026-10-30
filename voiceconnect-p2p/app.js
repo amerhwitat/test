@@ -63,6 +63,79 @@ async function handleSignal(from,payload){
     else{const q=pendingCandidates.get(from)||[];q.push(payload.candidate);pendingCandidates.set(from,q);}
   }
 }
+let directPeerConnection = null;
+let directDataChannel = null;
+function directStatus(message){ $("directStatus").textContent=message; }
+function attachDirectDataChannel(channel){
+  directDataChannel=channel;
+  channel.onopen=()=>directStatus("Direct peer connection established. Media and chat travel peer-to-peer.");
+  channel.onclose=()=>directStatus("Direct data channel closed.");
+  channel.onmessage=event=>{
+    try{const msg=JSON.parse(event.data);if(msg.type==="chat")renderChat({nickname:msg.nickname||"Peer",text:msg.text,timestamp:msg.timestamp||new Date().toISOString()});}
+    catch{console.warn("Invalid direct data-channel message");}
+  };
+}
+function makeDirectPeer(initiator){
+  if(directPeerConnection)directPeerConnection.close();
+  const pc=new RTCPeerConnection(rtcConfig);
+  directPeerConnection=pc;
+  pc.ontrack=event=>{$("directRemoteVideo").srcObject=event.streams[0];};
+  pc.onconnectionstatechange=()=>directStatus("Direct connection: "+pc.connectionState);
+  if(initiator)attachDirectDataChannel(pc.createDataChannel("voiceconnect-chat"));
+  else pc.ondatachannel=event=>attachDirectDataChannel(event.channel);
+  if(localStream)for(const track of localStream.getTracks())pc.addTrack(track,localStream);
+  if(screenStream)for(const track of screenStream.getVideoTracks())pc.addTrack(track,screenStream);
+  return pc;
+}
+async function waitForIceGathering(pc){
+  if(pc.iceGatheringState==="complete")return;
+  await new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>reject(new Error("ICE gathering timed out. Check network access and retry.")),20000);
+    pc.addEventListener("icegatheringstatechange",()=>{
+      if(pc.iceGatheringState==="complete"){clearTimeout(timeout);resolve();}
+    });
+  });
+}
+async function createDirectOffer(){
+  const pc=makeDirectPeer(true);
+  await pc.setLocalDescription(await pc.createOffer());
+  directStatus("Gathering connection candidates. Keep this window open…");
+  await waitForIceGathering(pc);
+  $("directSignalOutput").value=JSON.stringify(pc.localDescription);
+  directStatus("Offer ready. Copy it and send it privately to the other participant.");
+}
+async function createDirectAnswer(){
+  const offerText=$("directOfferInput").value.trim();
+  if(!offerText)throw new Error("Paste the caller's offer first.");
+  const offer=JSON.parse(offerText);
+  if(offer.type!=="offer"||!offer.sdp)throw new Error("The supplied text is not a valid WebRTC offer.");
+  const pc=makeDirectPeer(false);
+  await pc.setRemoteDescription(offer);
+  await pc.setLocalDescription(await pc.createAnswer());
+  directStatus("Gathering connection candidates. Keep this window open…");
+  await waitForIceGathering(pc);
+  $("directSignalOutput").value=JSON.stringify(pc.localDescription);
+  directStatus("Answer ready. Send it privately to the caller.");
+}
+async function applyDirectAnswer(){
+  if(!directPeerConnection)throw new Error("Create an offer before applying an answer.");
+  const answer=JSON.parse($("directOfferInput").value.trim());
+  if(answer.type!=="answer"||!answer.sdp)throw new Error("The supplied text is not a valid WebRTC answer.");
+  await directPeerConnection.setRemoteDescription(answer);
+  directStatus("Answer applied. Establishing direct peer connection…");
+}
+function resetDirectConnection(){
+  directDataChannel?.close();directDataChannel=null;
+  directPeerConnection?.close();directPeerConnection=null;
+  $("directRemoteVideo").srcObject=null;
+  $("directOfferInput").value="";$("directSignalOutput").value="";
+  directStatus("Direct connection reset.");
+}
+$("directCreateOffer").addEventListener("click",()=>createDirectOffer().catch(e=>directStatus(e.message)));
+$("directCreateAnswer").addEventListener("click",()=>createDirectAnswer().catch(e=>directStatus(e.message)));
+$("directApplyAnswer").addEventListener("click",()=>applyDirectAnswer().catch(e=>directStatus(e.message)));
+$("directReset").addEventListener("click",resetDirectConnection);
+$("directCopyOutput").addEventListener("click",async()=>{if(!$("directSignalOutput").value)return;try{await navigator.clipboard.writeText($("directSignalOutput").value);directStatus("Connection text copied.");}catch{directStatus("Clipboard unavailable; select and copy the text manually.");}});
 async function connectSignaling(){
   try {
     const response = await fetch("/api/ice-servers", { cache: "no-store" });
@@ -108,6 +181,7 @@ async function startMedia(){
   const video=allowCamera?(videoId?{deviceId:{exact:videoId},width:{ideal:1280},height:{ideal:720}}:{width:{ideal:1280},height:{ideal:720}}):false;
   localStream=await navigator.mediaDevices.getUserMedia({audio,video});
   localVideo.srcObject=localStream;
+  if(directPeerConnection)for(const track of localStream.getTracks())directPeerConnection.addTrack(track,localStream);
   for(const [id,{pc}] of peerConnections){for(const track of localStream.getTracks())pc.addTrack(track,localStream);const offer=await pc.createOffer();await pc.setLocalDescription(offer);signal(id,{description:pc.localDescription});}
   $("mediaState").textContent=[allowCamera?"Camera":"",allowMicrophone?"microphone":""].filter(Boolean).join(" & ")+" active";muteBtn.disabled=!allowMicrophone;cameraBtn.disabled=!allowCamera;shareScreenBtn.disabled=false;startMediaBtn.disabled=true;await refreshDevices();
 }
@@ -128,6 +202,7 @@ async function startScreenShare() {
   const track = screenStream.getVideoTracks()[0];
   $("localScreenPreview").srcObject = screenStream;
   $("localScreenPreview").hidden = false;
+  if(directPeerConnection){const sender=directPeerConnection.getSenders().find(s=>s.track?.kind==="video");if(sender)await sender.replaceTrack(track);else directPeerConnection.addTrack(track,screenStream);}
   for (const [id, item] of peerConnections) {
     const sender = item.pc.getSenders().find(s => s.track?.kind === "video");
     if (sender) await sender.replaceTrack(track);
@@ -146,6 +221,7 @@ async function stopScreenShare() {
   $("localScreenPreview").srcObject = null;
   $("localScreenPreview").hidden = true;
   const cameraTrack = localStream?.getVideoTracks()[0] || null;
+  if(directPeerConnection){const sender=directPeerConnection.getSenders().find(s=>s.track?.kind==="video");if(sender&&cameraTrack)await sender.replaceTrack(cameraTrack);else if(sender)await sender.replaceTrack(null);}
   for (const [id, item] of peerConnections) {
     const sender = item.pc.getSenders().find(s => s.track?.kind === "video");
     if (sender && cameraTrack) await sender.replaceTrack(cameraTrack);
@@ -204,5 +280,5 @@ const emojiSet = [..."😀 😃 😄 😁 😆 😅 😂 🙂 🙃 😉 😊 �
 const emojiPicker=$("emojiPicker");
 for(const emoji of [...new Set(emojiSet)]){const b=document.createElement("button");b.type="button";b.textContent=emoji;b.title=emoji;b.addEventListener("click",()=>{$("chatInput").value+=emoji;$("chatInput").focus();});emojiPicker.append(b);}
 $("emojiBtn").addEventListener("click",()=>{emojiPicker.hidden=!emojiPicker.hidden;});
-$("chatForm").addEventListener("submit",e=>{e.preventDefault();const text=$("chatInput").value.normalize("NFC").trim();if(!text||!roomName)return;send({type:"chat",text});$("chatInput").value="";});
+$("chatForm").addEventListener("submit",e=>{e.preventDefault();const text=$("chatInput").value.normalize("NFC").trim();if(!text)return;if(roomName){send({type:"chat",text});}else if(directDataChannel?.readyState==="open"){directDataChannel.send(JSON.stringify({type:"chat",nickname:profile().nickname,text,timestamp:new Date().toISOString()}));renderChat({nickname:profile().nickname,text,timestamp:new Date().toISOString()});}else{return;} $("chatInput").value="";});
 function renderChat(message){const row=document.createElement("article");row.className="chat-message";const meta=document.createElement("div");meta.className="meta";const who=document.createElement("span");who.textContent=message.nickname||"Guest";const when=document.createElement("time");when.textContent=new Date(message.timestamp).toLocaleTimeString();meta.append(who,when);const body=document.createElement("p");body.textContent=message.text;row.append(meta,body);$("chatMessages").append(row);$("chatMessages").scrollTop=$("chatMessages").scrollHeight;}
