@@ -524,6 +524,10 @@ async function startScreenShare() {
   if (!navigator.mediaDevices?.getDisplayMedia) throw new Error("Screen sharing is not supported by this browser.");
   const approved=window.confirm("Allow VoiceConnect to share your DESKTOP or an application window?\n\nThe next system picker lets you choose exactly what to share. If offered, you may separately choose whether to include system audio. Nothing is captured until you approve and select a source. You can stop sharing at any time.");
   if(!approved)throw new Error("Desktop sharing was not approved.");
+  if(window.voiceConnectDesktop?.requestMediaConsent){
+    const granted=await window.voiceConnectDesktop.requestMediaConsent("screen");
+    if(!granted)throw new Error("Desktop sharing permission was not granted by the application.");
+  }
   screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: true });
   const track = screenStream.getVideoTracks()[0];
   $("localScreenPreview").srcObject = screenStream;
@@ -554,6 +558,7 @@ async function stopScreenShare() {
     else if (sender && !cameraTrack) { try { item.pc.removeTrack(sender); } catch {} }
     await renegotiatePeer(id, item.pc);
   }
+  if(window.voiceConnectDesktop?.revokeMediaConsent)await window.voiceConnectDesktop.revokeMediaConsent("screen");
   shareScreenBtn.textContent = "Share screen";
   status("Screen sharing stopped", !!roomName);
 }
