@@ -278,3 +278,37 @@ The implementation was informed by public protocol specifications and project do
 - aMule demonstrates eMule-compatible Kademlia and source exchange across desktop platforms.
 
 No Chitchatter, aMule, eMule or BitTorrent client source files have been copied into this repository. Their licenses and protocol compatibility obligations are materially different; this implementation uses public protocol concepts and the existing WebRTC stack rather than importing copyleft source without a project-wide license decision. No third-party peer list or scraped IP database is bundled.
+
+
+## Public IP lookup and invitation links
+
+The lobby includes **Check my public IP**, which queries the external ipify JSON endpoint from the user's browser and displays the address returned by that service. This is the address visible to that lookup endpoint; VPNs, carrier NAT and ISP routing can affect it. VoiceConnect does not silently save it.
+
+To include it in a meeting invitation, the user must check **Include my checked public IP in the invitation link** and create the link. The IP is placed in the URL fragment (`#shared-ip=...`), which browsers do not send in the initial HTTP request. Recipients can read it from the invitation, so users should share such links only with trusted people. The invitation is still room-scoped and requires a valid invitation token.
+
+The IP is informational only. It does not create a port mapping, bypass NAT/firewalls, or guarantee that the recipient can dial the address. WebRTC ICE gathers and checks host, server-reflexive and relayed candidates; TURN is required for some restrictive NAT/firewall combinations. See RFC 8445 and RFC 8656.
+
+## Browser extensions
+
+The source includes lightweight Manifest V3 extensions:
+- `extensions/chromium/` — Chrome and Microsoft Edge.
+- `extensions/firefox/` — Firefox WebExtension with a Gecko extension ID.
+
+The extension stores only the configured VoiceConnect origin and opens an invitation in a normal browser tab. It does not request page-reading, browsing-history, camera or microphone permissions. Set the server URL in the popup before opening meetings. Default development URL: `http://localhost:8787`.
+
+Load unpacked:
+- Chrome: `chrome://extensions` → enable Developer mode → Load unpacked → select `extensions/chromium`.
+- Edge: `edge://extensions` → enable Developer mode → Load unpacked → select `extensions/chromium`.
+- Firefox: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → select `extensions/firefox/manifest.json`.
+
+Temporary Firefox add-ons are removed when Firefox restarts. Store publication/signing is a separate process; these source directories are not yet store-approved signed extensions. CI packages ZIP artifacts for distribution.
+
+## Signed peer records and global discovery status
+
+`discovery/peer-record.js` defines Ed25519-signed peer records with public-key-bound peer IDs, bounded multiaddress lists, and a maximum 15-minute expiry. Tests cover signature tampering, identity binding and expiry. These records are designed as the authenticated record format for a future libp2p Kademlia deployment.
+
+**Important:** signed records alone are not a live global DHT. The current application still performs room-scoped signaling/peer exchange. A production public Kademlia network additionally needs a running libp2p node, reachable bootstrap peers, a record validator/namespace, peer routing, DHT publication/lookup, revocation/expiry propagation and a browser-compatible relay path. No VoiceConnect-operated bootstrap nodes or domain-independent DHT service are configured in this repository, so global discovery and cross-network DHT reconnection are not claimed as complete.
+
+## Validation boundaries
+
+GitHub Actions can compile/package and perform software startup and MSI smoke tests, but hosted runners do not prove behavior on a user's physical GPU, restrictive home router, carrier NAT or enterprise firewall. Actual Direct3D 11/OpenGL driver coverage, two-device audio/video, TURN relay-only, NAT combinations, upgrade from a previously installed release, and uninstall residue checks require dedicated hardware/network test runs. Do not publish a release as production-verified until those checks have recorded results.
