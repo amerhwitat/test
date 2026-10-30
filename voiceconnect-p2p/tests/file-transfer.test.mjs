@@ -12,5 +12,5 @@ test("file offers enforce metadata, chunk count and size bounds", () => {
   assert.equal(validateFileOffer(offer), true);
   assert.equal(validateFileOffer({ ...offer, size: MAX_FILE_BYTES + 1 }), false);
   assert.equal(validateFileOffer({ ...offer, totalChunks: 99 }), false);
-  assert.equal(validateFileOffer({ ...offer, name: "../bad" }), true);
+  assert.equal(validateFileOffer({ ...offer, name: "../bad" }), false);
 });
