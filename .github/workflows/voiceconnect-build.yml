@@ -12,6 +12,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: voiceconnect-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   desktop:
     strategy:
@@ -25,6 +28,7 @@ jobs:
           - os: macos-latest
             script: build:mac
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: voiceconnect-p2p
@@ -105,6 +109,7 @@ jobs:
           retention-days: 30
   native-clients:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -132,6 +137,7 @@ jobs:
 
   browser-extensions:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Validate Chrome, Edge and Firefox extension manifests
