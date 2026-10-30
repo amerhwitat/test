@@ -111,7 +111,6 @@ async function startMedia() {
     if (peerId) signal(peerId, { description: pc.localDescription });
   }
   $("mediaState").textContent = "Camera & mic active";
-  muteBtn.disabled = cameraBtn.disabled = true ? false : false;
   muteBtn.disabled = cameraBtn.disabled = false;
   startMediaBtn.disabled = true;
   await refreshDevices();
