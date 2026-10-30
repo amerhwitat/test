@@ -88,7 +88,7 @@ jobs:
               git checkout feat/voiceconnect-p2p-camera
               git reset --hard origin/feat/voiceconnect-p2p-camera
             fi
-            mv ~/voiceconnect.env.production .env.production\n            chmod 600 .env.production
+            mv ~/voiceconnect.env.production .env.production\n            mv ~/voiceconnect.env.production .env.production\n            chmod 600 .env.production
             chmod +x deploy-production.sh
             ./deploy-production.sh'
       - name: Verify HTTPS signaling and TURN credential endpoint
