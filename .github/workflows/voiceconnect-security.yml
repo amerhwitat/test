@@ -60,7 +60,7 @@ jobs:
       - name: Install locked dependency graph
         run: npm ci
       - name: Generate CycloneDX SBOM
-        run: npm sbom --sbom-format cyclonedx --sbom-file voiceconnect-sbom.cdx.json
+        run: npm sbom --sbom-format=cyclonedx > voiceconnect-sbom.cdx.json
       - name: Upload dependency inventory
         uses: actions/upload-artifact@v4
         with:
