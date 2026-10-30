@@ -304,7 +304,7 @@ async function handleFileProtocol(message,channel,peerId,label){
     if(digest!==state.offer.sha256){clearTimeout(state.timeout);fileStatus("File integrity check failed; file discarded.");try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}incomingFiles.delete(message.id);state.row.remove();return;}
     clearTimeout(state.timeout);
     if(completedBytes+bytes.byteLength>MAX_COMPLETED_FILE_BYTES){fileStatus("Completed-file memory limit reached; refusing additional file.");try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}incomingFiles.delete(message.id);state.row.remove();return;}
-    incomingFiles.delete(message.id);completedBytes+=bytes.byteLength;const completed={offer:state.offer,bytes,row:state.row,timeout:null};completedFiles.set(message.id,completed);
+    incomingFiles.delete(message.id);completedBytes+=bytes.byteLength;const completed={offer:state.offer,bytes,row:state.row,channel:state.channel,timeout:null};completedFiles.set(message.id,completed);
     completed.timeout=setTimeout(()=>discardCompletedFile(message.id),COMPLETED_FILE_RETENTION_MS);
     channel.send(JSON.stringify({type:"file-received",id:message.id}));
     state.meta.textContent="Received and SHA-256 verified. Choose where to save.";
@@ -314,6 +314,7 @@ async function handleFileProtocol(message,channel,peerId,label){
   }
   if(message.type==="file-cancel"){
     const state=incomingFiles.get(message.id);if(state){clearTimeout(state.timeout);state.row.remove();incomingFiles.delete(message.id);}
+    const completed=completedFiles.get(message.id);if(completed?.channel===channel)discardCompletedFile(message.id);
     const sent=outgoingFiles.get(message.id);if(sent){sent.row.querySelector(".hint").textContent="Transfer cancelled by recipient.";outgoingFiles.delete(message.id);}
   }
 }
