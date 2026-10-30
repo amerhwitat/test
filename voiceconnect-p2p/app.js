@@ -170,8 +170,10 @@ function updatePeerCard(id, data) {
 }
 async function createPeer(id, initiator, data = {}) {
   if(peerConnections.has(id)) return peerConnections.get(id).pc;
-  const ui=makePeerCard(id,data), pc=new RTCPeerConnection(rtcConfig), record={pc,...ui};
+  const ui=makePeerCard(id,data), pc=new RTCPeerConnection(rtcConfig), record={pc,...ui,fileChannel:null};
   peerConnections.set(id,record);
+  pc.ondatachannel=event=>{if(event.channel.label==="voiceconnect-files"){record.fileChannel=event.channel;attachFileChannel(event.channel,id,data.nickname||"Room peer");}};
+  if(initiator){record.fileChannel=pc.createDataChannel("voiceconnect-files");attachFileChannel(record.fileChannel,id,data.nickname||"Room peer");}
   if(localStream) for(const track of localStream.getTracks()) pc.addTrack(track,localStream);
   if(screenStream) for(const track of screenStream.getVideoTracks()) pc.addTrack(track,screenStream);
   pc.ontrack=(event)=>{record.video.srcObject=event.streams[0];};
@@ -331,12 +333,13 @@ function attachDirectDataChannel(channel){
   directDataChannel=channel;
   channel.onopen=()=>{
     directStatus("Direct peer connection established. Media and chat travel peer-to-peer.");
-    sendDirectProfile();
+    sendDirectProfile();refreshFileRecipients();
   };
-  channel.onclose=()=>directStatus("Direct data channel closed.");
+  channel.onclose=()=>{directStatus("Direct data channel closed.");refreshFileRecipients();};
   channel.onmessage=async event=>{
     try{
       const msg=JSON.parse(event.data);
+      if(msg.type?.startsWith("file-")){await handleFileProtocol(msg,channel,"direct",directRemoteProfile.nickname);return;}
       if(msg.type==="profile"){
         directRemoteProfile={nickname:String(msg.nickname||"Peer").slice(0,32),avatar:typeof msg.avatar==="string"?msg.avatar:"",userGuid:msg.userGuid||""};
         $("directRemoteNickname").textContent=directRemoteProfile.nickname;
