@@ -93,7 +93,7 @@ test("room profile metadata is synchronized and attached to chat", async () => {
     const exchange = await bobPeerExchange;
     assert.equal(exchange.peers.length, 1);
     assert.equal(exchange.peers[0].nickname, "Alice");
-    assert.equal(exchange.peers[0].addressShared, undefined);
+    assert.equal(exchange.peers[0].addressShared, false);
 
     const aliceSawChat = waitForMessage(alice, m => m.type === "chat");
     bob.send(JSON.stringify({ type: "chat", text: "Hello with profile" }));
