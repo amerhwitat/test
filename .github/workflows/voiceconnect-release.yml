@@ -30,6 +30,8 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm libfuse2
       - run: npm install
+      - run: npm install --no-save sharp png-to-ico
+      - run: node generate-icon.mjs
       - run: npm test
       - run: npm run ${{ matrix.script }}
       - uses: actions/upload-artifact@v4
