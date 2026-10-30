@@ -96,8 +96,17 @@ async function connectSignaling(){
 });}
 async function startMedia(){
   if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera/microphone requires HTTPS or localhost.");
+  const allowCamera=window.confirm("Allow VoiceConnect to access your CAMERA?\n\nYour camera turns on only after you approve this request and your operating system/browser grants access. Video is shared with participants in the room when you join. You can turn it off at any time.");
+  const allowMicrophone=window.confirm("Allow VoiceConnect to access your MICROPHONE?\n\nYour microphone audio is shared with participants in the room when you join. You can mute it at any time.");
+  if(!allowCamera&&!allowMicrophone)throw new Error("Camera and microphone access were not granted.");
+  if(window.voiceConnectDesktop?.requestMediaConsent){
+    if(allowCamera)await window.voiceConnectDesktop.requestMediaConsent("camera");
+    if(allowMicrophone)await window.voiceConnectDesktop.requestMediaConsent("microphone");
+  }
   const videoId=$("cameraSelect").value||undefined,audioId=$("micSelect").value||undefined;
-  localStream=await navigator.mediaDevices.getUserMedia({audio:audioId?{deviceId:{exact:audioId},echoCancellation:true,noiseSuppression:true}:{echoCancellation:true,noiseSuppression:true},video:videoId?{deviceId:{exact:videoId},width:{ideal:1280},height:{ideal:720}}:{width:{ideal:1280},height:{ideal:720}}});
+  const audio=allowMicrophone?(audioId?{deviceId:{exact:audioId},echoCancellation:true,noiseSuppression:true}:{echoCancellation:true,noiseSuppression:true}):false;
+  const video=allowCamera?(videoId?{deviceId:{exact:videoId},width:{ideal:1280},height:{ideal:720}}:{width:{ideal:1280},height:{ideal:720}}):false;
+  localStream=await navigator.mediaDevices.getUserMedia({audio,video});
   localVideo.srcObject=localStream;
   for(const [id,{pc}] of peerConnections){for(const track of localStream.getTracks())pc.addTrack(track,localStream);const offer=await pc.createOffer();await pc.setLocalDescription(offer);signal(id,{description:pc.localDescription});}
   $("mediaState").textContent="Camera & mic active";muteBtn.disabled=cameraBtn.disabled=shareScreenBtn.disabled=false;startMediaBtn.disabled=true;await refreshDevices();
@@ -113,6 +122,8 @@ async function renegotiatePeer(id, pc) {
 }
 async function startScreenShare() {
   if (!navigator.mediaDevices?.getDisplayMedia) throw new Error("Screen sharing is not supported by this browser.");
+  const approved=window.confirm("Allow VoiceConnect to share your DESKTOP or an application window?\n\nThe next system picker lets you choose exactly what to share. If offered, you may separately choose whether to include system audio. Nothing is captured until you approve and select a source. You can stop sharing at any time.");
+  if(!approved)throw new Error("Desktop sharing was not approved.");
   screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: true });
   const track = screenStream.getVideoTracks()[0];
   $("localScreenPreview").srcObject = screenStream;
