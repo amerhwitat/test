@@ -1,22 +1,26 @@
 # VoiceConnect P2P
 
-An independent, browser-based voice and camera application inspired by the interaction model of Microsoft's DirectX 9 SDK **VoiceConnect** sample. It does not copy or link against DirectPlay or DirectPlay Voice.
+Independent browser and desktop voice/video application inspired by the user experience of Microsoft's DirectX 9 SDK VoiceConnect sample. No DirectPlay source or runtime is bundled.
 
-## Features in this first prototype
+## Features
 
-- Room-based peer discovery through a lightweight WebSocket signaling service.
-- WebRTC audio/video media connections between browsers (mesh topology, up to 8 room members by signaling policy).
-- Camera and microphone selection, local preview, mute, and camera enable/disable.
-- STUN-assisted ICE negotiation for direct paths when possible.
-- No media server in the application path by design; media is sent peer-to-peer when network topology permits.
+- Automatic discovery of participants who join the same room.
+- WebRTC mesh audio/video, camera/microphone selection, preview, mute and camera toggle.
+- Nicknames and avatars, stored locally in the browser profile and announced to room peers.
+- Optional consent-based server-side JSON peer registry at `data/peers.json`, including the signaling host's observed client IP, nickname, avatar, first-seen and last-seen timestamps. File permissions are restricted to the creating user where supported.
+- STUN and configurable TURN/TLS ICE servers.
+- Electron desktop shell and packaging scripts for Windows, Linux and macOS.
+- Optional HTTP(S) proxy for Electron's signaling/web requests via `HTTPS_PROXY` / `HTTP_PROXY`.
 
-## Requirements
+## Automatic peer discovery and IP handling
 
-- Node.js 20+
-- A modern browser with WebRTC support.
-- HTTPS for camera/microphone permissions when accessed from another machine. `http://localhost` is permitted for local development.
+Discovery is room-based: when a participant joins a room, the signaling service automatically shares their peer ID, nickname and avatar with the room. Existing members are returned to newcomers. It does not scan arbitrary IP ranges, probe ports, or attempt to discover devices that have not opted into a room.
 
-## Run locally
+A browser cannot reliably obtain another peer's real IP address from WebRTC: modern browsers intentionally restrict this information and may expose mDNS host candidates instead. The signaling server sees the remote address of its WebSocket connection. If the user explicitly checks the save-consent box, the server writes that observed address and profile to its local JSON registry. Behind a reverse proxy, set `TRUST_PROXY=1` only when that proxy strips untrusted forwarded headers and writes its own `X-Forwarded-For`. Otherwise the recorded address may be the proxy address. The registry is sensitive data: keep the host private, restrict filesystem access, and apply retention/deletion rules appropriate to your users.
+
+## Run as a local web app
+
+Requirements: Node.js 20+.
 
 ```sh
 cd voiceconnect-p2p
@@ -24,41 +28,40 @@ npm install
 npm start
 ```
 
-Open http://localhost:8787 in two browser profiles/devices, enter the same room name, join, and enable camera & microphone on each side.
+Open http://localhost:8787 in two browser profiles/devices. Join the same room and enable camera/microphone. For camera and microphone on remote devices, deploy behind HTTPS/WSS.
 
-## How it works
+## Desktop builds (Windows / Linux / macOS)
 
-1. The WebSocket server validates a room name, announces peers, and relays SDP/ICE signaling messages only.
-2. Browsers negotiate an `RTCPeerConnection` for each other participant.
-3. Audio and video tracks travel over WebRTC's encrypted media transport. A direct peer route is attempted through ICE/STUN.
-4. If direct connectivity is blocked by symmetric NAT, carrier NAT, or firewall policy, configure a TURN service; TURN relays packets and is not the same as a centralized media mixer.
+Install Node.js 20+ and npm on the target build OS, then:
 
-This resembles BitTorrent only in the goal of avoiding a central media distributor. It is not a BitTorrent swarm: each participant establishes a live WebRTC connection to each other participant. Mesh bandwidth grows with participant count, so a larger room should use an SFU or a different topology.
+```sh
+npm install
+npm run desktop
+npm run build:win
+npm run build:linux
+npm run build:mac
+```
 
-## TURN configuration
+Electron Builder generally produces platform-native packages on its corresponding host OS. Build Windows installers on Windows, Linux packages on Linux, and macOS packages on macOS; macOS signing/notarization requires Apple developer credentials. Cross-compiling all three from one host is not guaranteed.
 
-The demo ships with a public STUN server for connectivity checks. Production deployments should provide authenticated TURN credentials and configure `iceServers` in `app.js`. Do not embed long-lived TURN secrets in a public client bundle; issue short-lived credentials from an authenticated backend.
+The Electron wrapper starts the local signaling/static server and opens the UI. The app remains a networked P2P client: for multi-device calls, peers still need a reachable signaling endpoint or a separately deployed server. Configure `PORT` if the default is occupied.
 
-## Deployment and security
+## Proxy, firewall traversal and VPN
 
-- Deploy behind HTTPS/WSS.
-- Add authentication, authorization, room secrets, rate limits, abuse reporting, and origin validation before exposing this publicly.
-- The included room server is a prototype: room names are not passwords, signaling is unauthenticated, and it has no persistence.
-- The static server is intended for this directory only; deploy behind a reverse proxy with normal operational hardening.
-- Browser media access is permission-gated. The app does not activate camera or microphone until the user presses **Enable camera & mic**.
-- WebRTC encrypts media in transit, but this prototype does not provide end-to-end identity verification or a guarantee against malicious signaling.
+- Electron can use `HTTPS_PROXY` / `HTTP_PROXY` for app/signaling traffic. This does not tunnel WebRTC's UDP media packets.
+- Browser WebRTC ICE attempts direct routes using STUN. When firewalls or symmetric/carrier NAT prevent direct connectivity, configure a TURN server, preferably `turns:` over TCP/TLS port 443. TURN relays encrypted media; it is not a media mixer.
+- The UI accepts TURN URL and credentials for the current session. Production should issue short-lived TURN credentials from an authenticated backend, not embed static secrets in the client.
+- A true embedded VPN requires privileged OS tunnel interfaces, routing, DNS handling, permissions and platform-specific signing. A browser app cannot install or operate those safely. Use a system VPN such as WireGuard/OpenVPN or build a separately signed native tunnel service and connect this app through it. This project does not claim to include a VPN client.
+- For strict networks, configure TURN/TLS and optionally run the signaling endpoint behind a reverse proxy reachable on TCP 443.
 
-## Current limitations / next milestones
+## Security and operational limitations
 
-- No TURN credential service or deployment manifests yet.
-- No screen sharing, text chat, recording, file transfer, contacts, or mobile-native wrappers.
-- No automated browser-to-browser integration test in this initial commit.
-- Mesh calls are suitable for small groups; do not treat the configured 8-peer room limit as a tested performance guarantee.
-
-## Relationship to the original sample
-
-The DirectX 9 SDK documentation lists VoiceConnect among the DirectPlay C++ samples. DirectPlay Voice is deprecated and unavailable on modern Windows versions, so this project is a clean, independent WebRTC implementation of a similar user-facing use case, not a port of the legacy runtime.
+- The JSON peer registry is opt-in but stores IP addresses and profile metadata. Do not enable it without clear consent, a retention policy, secure host access and an appropriate privacy notice.
+- The sample room service is not production-authenticated. Room names are not access tokens. Add authentication, room authorization, abuse controls, origin checks, rate limits and TLS termination before public deployment.
+- TURN configuration entered in the browser is session-only; secrets are not persisted.
+- Peer mesh bandwidth increases with participant count; the current room cap is eight and is not a performance guarantee.
+- No automated browser-to-browser, firewall matrix, proxy, or VPN integration test has been executed in this commit.
 
 ## License
 
-No DirectX SDK sample source is included. Add a project license before redistributing this application.
+No DirectX SDK sample source is included. Add a project license before redistribution.
