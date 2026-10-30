@@ -89,9 +89,10 @@ function makePeerCard(id, data = {}) {
   const avatar = document.createElement("img"); avatar.className = "peer-avatar"; avatar.alt = ""; avatar.src = data.avatar || "avatar.svg";
   const label = document.createElement("div"); label.className = "peer-label"; label.textContent = (data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : "");
   head.append(avatar,label);
+  const state = document.createElement("span"); state.className = "peer-connection-state"; state.textContent = "Discovered · connecting";
   const video = document.createElement("video"); video.autoplay = true; video.playsInline = true;
-  const remember=document.createElement("button"); remember.type="button"; remember.className="secondary"; remember.textContent="Remember peer"; remember.disabled=!data.addressShared; remember.addEventListener("click",()=>rememberPeer(id).catch(error=>status(error.message)));\n  card.append(head,video,remember); peersNode.append(card);
-  return { card, video, label, avatar, remember };
+  const remember=document.createElement("button"); remember.type="button"; remember.className="secondary"; remember.textContent="Remember peer"; remember.disabled=!data.addressShared; remember.addEventListener("click",()=>rememberPeer(id).catch(error=>status(error.message)));\n  card.append(head,state,video,remember); peersNode.append(card);
+  return { card, video, label, avatar, remember, state };
 }
 function updatePeerCard(id, data) {
   peerProfiles.set(id,data);
@@ -105,7 +106,7 @@ async function createPeer(id, initiator, data = {}) {
   if(screenStream) for(const track of screenStream.getVideoTracks()) pc.addTrack(track,screenStream);
   pc.ontrack=(event)=>{record.video.srcObject=event.streams[0];};
   pc.onicecandidate=(event)=>{if(event.candidate)signal(id,{candidate:event.candidate});};
-  pc.onconnectionstatechange=()=>{if(["failed","closed"].includes(pc.connectionState))removePeer(id);};
+  pc.onconnectionstatechange=()=>{record.state.textContent="WebRTC · "+pc.connectionState;if(["failed","closed"].includes(pc.connectionState))removePeer(id);};
   pc.onicecandidateerror=(event)=>console.warn("ICE candidate error",event.errorText);
   updatePeerCount();
   if(initiator){const offer=await pc.createOffer();await pc.setLocalDescription(offer);signal(id,{description:pc.localDescription});}
