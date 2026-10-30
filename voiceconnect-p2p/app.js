@@ -75,7 +75,7 @@ function attachDirectDataChannel(channel){
     catch{console.warn("Invalid direct data-channel message");}
   };
 }
-function makeDirectPeer(initiator){
+async function makeDirectPeer(initiator){
   if(directPeerConnection)directPeerConnection.close();
   const pc=new RTCPeerConnection(rtcConfig);
   directPeerConnection=pc;
@@ -103,7 +103,7 @@ async function waitForIceGathering(pc){
   });
 }
 async function createDirectOffer(){
-  const pc=makeDirectPeer(true);
+  const pc=await makeDirectPeer(true);
   await pc.setLocalDescription(await pc.createOffer());
   directStatus("Gathering connection candidates. Keep this window open…");
   await waitForIceGathering(pc);
@@ -115,7 +115,7 @@ async function createDirectAnswer(){
   if(!offerText)throw new Error("Paste the caller's offer first.");
   const offer=JSON.parse(offerText);
   if(offer.type!=="offer"||!offer.sdp)throw new Error("The supplied text is not a valid WebRTC offer.");
-  const pc=makeDirectPeer(false);
+  const pc=await makeDirectPeer(false);
   await pc.setRemoteDescription(offer);
   await pc.setLocalDescription(await pc.createAnswer());
   directStatus("Gathering connection candidates. Keep this window open…");
