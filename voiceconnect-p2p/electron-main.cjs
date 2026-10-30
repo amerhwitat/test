@@ -22,12 +22,21 @@ let mainWindow;
 let startupLog;
 const mediaConsents = new Map();
 
+function trustedOrigin() {
+  const port = localServer?.address()?.port;
+  return Number.isInteger(port) ? `http://127.0.0.1:${port}` : "";
+}
+function trustedWebContents(webContents) {
+  try {
+    return Boolean(mainWindow && webContents === mainWindow.webContents &&
+      new URL(webContents.getURL()).origin === trustedOrigin());
+  } catch { return false; }
+}
 function trustedRenderer(event) {
   try {
-    const url = new URL(event.senderFrame.url);
-    const port = localServer?.address()?.port;
-    return url.protocol === "http:" && url.hostname === "127.0.0.1" &&
-      Number(url.port) === port && Number.isInteger(port);
+    const frame = event.senderFrame;
+    return Boolean(frame && event.sender === mainWindow?.webContents &&
+      frame === event.sender.mainFrame && new URL(frame.url).origin === trustedOrigin());
   } catch { return false; }
 }
 function knownPeersPath() {
@@ -92,10 +101,34 @@ ipcMain.handle("voiceconnect:save-received-file", async (event, input) => {
   });
   if (result.canceled || !result.filePath) return { ok: false, canceled: true };
   try {
+    let approvedIdentity = null;
+    try {
+      const existing = fs.statSync(result.filePath, { bigint: true });
+      const choice = await dialog.showMessageBox(mainWindow, {
+        type: "warning",
+        title: "Confirm file overwrite",
+        message: "A file with this name already exists.",
+        detail: "Replace the existing file with the verified received file?",
+        buttons: ["Cancel", "Overwrite"],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true
+      });
+      if (choice.response !== 1) return { ok: false, canceled: true };
+      approvedIdentity = [existing.dev, existing.ino, existing.size, existing.mtimeNs].map(String).join(":");
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
     const saved = await persistSelectedFile(result.filePath, data, {
-      // The native save panel has already asked before returning an existing
-      // destination. This callback also handles a path that races into place.
-      confirmOverwrite: async () => true
+      // Only overwrite the exact file the user explicitly approved. If a new
+      // file races into an initially empty destination, fail closed.
+      confirmOverwrite: async filePath => {
+        if (!approvedIdentity) return false;
+        try {
+          const current = fs.statSync(filePath, { bigint: true });
+          return [current.dev, current.ino, current.size, current.mtimeNs].map(String).join(":") === approvedIdentity;
+        } catch { return false; }
+      }
     });
     return saved.ok ? { ok: true, filePath: saved.filePath } : { ok: false, canceled: true };
   } catch (error) {
@@ -105,11 +138,19 @@ ipcMain.handle("voiceconnect:save-received-file", async (event, input) => {
 });
 
 ipcMain.handle("voiceconnect:consent-media", (event, kind) => {
-  if (!["camera", "microphone"].includes(kind)) return false;
+  if (!["camera", "microphone", "screen"].includes(kind)) return false;
   try {
     if (!trustedRenderer(event)) return false;
   } catch { return false; }
   mediaConsents.set(event.sender.id, new Set([...(mediaConsents.get(event.sender.id) || []), kind]));
+  return true;
+});
+ipcMain.handle("voiceconnect:revoke-media-consent", (event, kind) => {
+  if (!["camera", "microphone", "screen"].includes(kind) || !trustedRenderer(event)) return false;
+  const granted = mediaConsents.get(event.sender.id);
+  if (!granted) return true;
+  granted.delete(kind);
+  if (!granted.size) mediaConsents.delete(event.sender.id);
   return true;
 });
 
@@ -184,15 +225,13 @@ async function startDesktop() {
     // The app's own local UI is trusted. Keep camera/microphone permissions
     // scoped to that local origin; never grant permissions to remote origins.
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-      let trusted = false;
-      try {
-        trusted = new URL(webContents.getURL()).hostname === "127.0.0.1";
-      } catch {}
+      const trusted = trustedWebContents(webContents);
       const granted = mediaConsents.get(webContents.id) || new Set();
       const requestedTypes = Array.isArray(details?.mediaTypes) ? details.mediaTypes : [];
       const mediaAllowed = permission === "media" && requestedTypes.length > 0 &&
         requestedTypes.every(type => granted.has(type === "video" ? "camera" : type === "audio" ? "microphone" : ""));
-      callback(trusted && (mediaAllowed || permission === "display-capture"));
+      const screenAllowed = permission === "display-capture" && granted.has("screen");
+      callback(trusted && (mediaAllowed || screenAllowed));
     });
 
     const dataDir = path.join(app.getPath("userData"), "data");
