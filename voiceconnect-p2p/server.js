@@ -92,9 +92,9 @@ wss.on("connection", (ws, req) => {
       const consent = msg.saveLocally === true;
       if (consent) {
         const now = new Date().toISOString();
-        const previous = registry.peers.find(p => p.peerId === ws.id);
+        const previous = registry.peers.find(p => p.userGuid === suppliedGuid);
         const entry = { peerId: ws.id, userGuid: suppliedGuid, nickname, avatar, observedIp: ws.ip, firstSeen: previous?.firstSeen || now, lastSeen: now };
-        registry.peers = [entry, ...registry.peers.filter(p => p.peerId !== ws.id)].slice(0, 500);
+        registry.peers = [entry, ...registry.peers.filter(p => p.userGuid !== suppliedGuid)].slice(0, 500);
         try { await persistRegistry(); send(ws, { type: "profile-saved", saved: true }); }
         catch (err) { send(ws, { type: "error", message: "Could not save local peer registry: " + err.message }); }
       } else send(ws, { type: "profile-saved", saved: false });
