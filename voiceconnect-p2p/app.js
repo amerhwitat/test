@@ -4,15 +4,16 @@ const startMediaBtn = $("startMediaBtn"), muteBtn = $("muteBtn"), cameraBtn = $(
 const localVideo = $("localVideo"), peersNode = $("peers");
 const peerConnections = new Map(), peerProfiles = new Map(), pendingCandidates = new Map();
 let socket = null, myId = null, roomName = null, localStream = null, avatarData = "";
+const savedProfile = JSON.parse(localStorage.getItem("vc-profile") || "{}");
 const userGuid = savedProfile.userGuid || crypto.randomUUID();
 localStorage.setItem("vc-profile", JSON.stringify({...savedProfile, userGuid}));
 let muted = false, cameraOff = false;
 const defaultIceServers = [{ urls: "stun:stun.l.google.com:19302" }];
 let rtcConfig = { iceServers: defaultIceServers };
-const savedProfile = JSON.parse(localStorage.getItem("vc-profile") || "{}");
+$("userGuid").textContent = userGuid;
 $("nickname").value = savedProfile.nickname || "";
 $("savePeer").checked = savedProfile.savePeer === true;
-if (savedProfile.avatar) avatarData = savedProfile.avatar;
+if (savedProfile.avatar) { avatarData = savedProfile.avatar; const preview=$("avatarPreview"); preview.src=avatarData; preview.hidden=false; }
 function status(text, online = false) { $("statusText").textContent = text; $("statusDot").parentElement.classList.toggle("online", online); }
 function send(data) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data)); }
 function signal(to, payload) { send({ type: "signal", to, payload }); }
@@ -112,6 +113,7 @@ $("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.
     if(roomName)sendProfile();status("Local avatar loaded and saved on this device",!!roomName);
   }catch(err){status("Could not read that image: "+err.message);}
 });
+$("clearAvatarBtn").addEventListener("click",()=>{avatarData="";$("avatarPreview").removeAttribute("src");$("avatarPreview").hidden=true;$("avatarFile").value="";const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:"",savePeer:p.saveLocally}));if(roomName)sendProfile();});
 $("applyNetworkBtn").addEventListener("click",async()=>{
   const url=$("turnUrl").value.trim(),username=$("turnUser").value.trim(),credential=$("turnPass").value;
   rtcConfig={iceServers:[...defaultIceServers,...(url?[{urls:url,username,credential}]:[])]};
