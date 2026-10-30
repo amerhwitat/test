@@ -279,10 +279,12 @@ $("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.
   if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))return status("Choose PNG, JPEG, WebP or GIF");
   try{
     const source=await createImageBitmap(file);
-    const scale=Math.min(1,512/Math.max(source.width,source.height));
+    const scale=Math.min(1,256/Math.max(source.width,source.height));
     const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(source.width*scale));canvas.height=Math.max(1,Math.round(source.height*scale));
     const ctx=canvas.getContext("2d");ctx.drawImage(source,0,0,canvas.width,canvas.height);source.close();
-    avatarData=canvas.toDataURL("image/webp",0.82);
+    let quality=0.72;avatarData=canvas.toDataURL("image/webp",quality);
+    while(avatarData.length>48000&&quality>0.32){quality-=0.08;avatarData=canvas.toDataURL("image/webp",quality);}
+    if(avatarData.length>48000)throw new Error("Image is too detailed to share safely; choose a smaller image.");
     const preview=$("avatarPreview");if(preview){preview.src=avatarData;preview.hidden=false;}
     const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:avatarData,savePeer:p.saveLocally}));
     if(roomName)sendProfile();sendDirectProfile();status("Local avatar loaded and saved on this device",!!roomName);
