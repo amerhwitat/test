@@ -41,6 +41,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y rpm libfuse2
       - run: npm install
       - run: npm install --no-save sharp png-to-ico
+      - name: Capture dependency-level npm audit report
+        run: |
+          node -e "const fs=require('node:fs');const {spawnSync}=require('node:child_process');const r=spawnSync('npm audit --json',{encoding:'utf8',shell:true});const raw=r.stdout||r.stderr||'{}';fs.writeFileSync('npm-audit-report.json',raw);let a;try{a=JSON.parse(raw)}catch(e){console.error('npm audit did not return valid JSON');process.exit(1)}const rows=Object.entries(a.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,isDirect:v.isDirect,range:v.range,fixAvailable:v.fixAvailable,via:(v.via||[]).map(x=>typeof x==='string'?x:{name:x.name,title:x.title,url:x.url,range:x.range})}));console.log(JSON.stringify({counts:a.metadata?.vulnerabilities,packages:rows},null,2));"
       - run: node generate-icon.mjs
       - run: npm test
       - run: npm run ${{ matrix.script }}
@@ -92,6 +95,13 @@ jobs:
           } finally {
             if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
+      - if: always() && hashFiles('voiceconnect-p2p/npm-audit-report.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: voiceconnect-${{ matrix.os }}-npm-audit
+          path: voiceconnect-p2p/npm-audit-report.json
+          if-no-files-found: error
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         with:
           name: voiceconnect-${{ matrix.os }}-desktop
