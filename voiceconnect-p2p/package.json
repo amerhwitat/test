@@ -1,0 +1,13 @@
+{
+  "name": "voiceconnect-p2p",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Independent peer-to-peer voice and camera application inspired by the DirectX 9 VoiceConnect sample.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "^8.18.0" }
+}
