@@ -165,3 +165,19 @@ The manual workflow `.github/workflows/voiceconnect-deploy-production.yml` deplo
 The host must already have Docker Engine with Compose v2, Git, a dedicated non-root deployment account, and firewall/DNS configured. Point the domain A record at the host and allow TCP 80/443, UDP/TCP 3478 and UDP 49160–49200. Use a protected environment and review who can invoke deployments. The workflow transfers the environment file over SSH and runs the deployment script; it does not provision the VPS, DNS records, cloud firewall, or SSH account.
 
 The workflow verifies HTTPS health, TURN credential issuance and invitation issuance after deployment. These HTTP checks are not a substitute for actual ICE relay tests or two-device camera/microphone/screen/system-audio acceptance. Collect those separately before declaring production-ready.
+
+
+### Provision a new Linux VPS (Hetzner Cloud)
+
+A Terraform baseline is provided in `infra/hetzner/`. Defaults are Ubuntu 24.04, Hetzner location `fsn1` (Falkenstein), and server type `cx23`. Review current provider pricing, quotas, IPv4 charges, bandwidth and regional latency before applying; these defaults are a starting point, not a purchase authorization or a guaranteed price.
+
+1. Create a Hetzner Cloud project and API token with only the permissions needed to create/manage servers, firewalls and SSH keys.
+2. Generate an SSH key locally. Supply only its **public** key in `terraform.tfvars`; never commit the API token or private key.
+3. Set `TF_VAR_hcloud_token` in your local shell or secret manager. Copy `terraform.tfvars.example` to `terraform.tfvars`, replace the public key and set `admin_cidrs` to your actual fixed SSH source IP CIDR (never leave the documentation example in place).
+4. From `infra/hetzner`, run `terraform init`, inspect `terraform plan`, then `terraform apply` only after reviewing the resources and recurring cost.
+5. Set the DNS A record for the chosen hostname to Terraform's `server_ipv4` output. Confirm DNS propagation. Configure the GitHub `production` environment variables/secrets documented above, including the resulting server address, deploy user `voiceconnect`, SSH private key and verified host key.
+6. Deploy using the guarded workflow. Keep the SSH firewall source restricted to your admin CIDR.
+
+The Terraform firewall opens TCP 80/443/3478, UDP 80/443/3478 and UDP 49160–49200; SSH is restricted to `admin_cidrs`. Reassess the unused UDP 80/443 rules and IPv6 exposure for your environment before apply. The bootstrap creates a non-root deployment account and installs Docker Engine/Compose; it does not configure DNS, obtain TLS, create provider billing, or deploy the app itself.
+
+**Important:** No Hetzner account, API token, SSH key, billing authorization, domain or DNS zone is connected to this repository session. The VPS has not been created. Provisioning incurs provider charges and requires you to run/approve Terraform from your account.
