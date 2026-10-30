@@ -58,6 +58,12 @@ jobs:
           test -n "$APPLE_ID" || { echo "Missing APPLE_ID" >&2; exit 2; }
           test -n "$APPLE_APP_SPECIFIC_PASSWORD" || { echo "Missing APPLE_APP_SPECIFIC_PASSWORD" >&2; exit 2; }
           test -n "$APPLE_TEAM_ID" || { echo "Missing APPLE_TEAM_ID" >&2; exit 2; }
+      - if: runner.os == 'Windows'
+        name: Build DirectX 11 Windows packages
+        run: npm run build:win:directx
+      - if: runner.os == 'Windows'
+        name: Build OpenGL Windows packages
+        run: npm run build:win:opengl
       - name: Build signed platform packages
         env:
           CSC_LINK: ${{ runner.os == 'Windows' && secrets.WINDOWS_CSC_LINK || (runner.os == 'macOS' && secrets.APPLE_CSC_LINK) || '' }}
