@@ -114,7 +114,7 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
 server.on("upgrade", (req, socket, head) => {
   const origin = req.headers.origin, ip = observedIp(req);
-  if ((production && (!origin || !allowedOrigins.has(origin))) || (origin && !allowedOrigins.has(origin)) || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 403 Forbidden\\r\\n\\r\\n"); socket.destroy(); return; }
+  if ((production && (!origin || !allowedOrigins.has(origin))) || (origin && !allowedOrigins.has(origin)) || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
   if (new URL(req.url, "http://localhost").pathname !== "/signal") { socket.destroy(); return; }
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
 });
