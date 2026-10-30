@@ -176,7 +176,7 @@ wss.on("connection", (ws, req) => {
       if (!rateAllowed("chat:" + ws.id, 20, 10000)) return send(ws, { type: "error", message: "Chat rate limit exceeded" });
       const text = typeof msg.text === "string" ? msg.text.normalize("NFC").slice(0, 4000) : "";
       if (!text.trim()) return;
-      const packet = { type: "chat", message: { id: randomUUID(), peerId: ws.id, userGuid: ws.profile.userGuid, nickname: ws.profile.nickname, text, timestamp: new Date().toISOString() } };
+      const packet = { type: "chat", message: { id: randomUUID(), peerId: ws.id, userGuid: ws.profile.userGuid, nickname: ws.profile.nickname, avatar: ws.profile.avatar || "", text, timestamp: new Date().toISOString() } };
       for (const peer of rooms.get(ws.room)?.values() || []) send(peer, packet);
       return;
     }
