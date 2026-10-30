@@ -84,6 +84,20 @@ jobs:
           path: voiceconnect-p2p/dist/*
           if-no-files-found: error
           retention-days: 90
+      - if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: voiceconnect-windows-directx-release
+          path: voiceconnect-p2p/dist/directx/*
+          if-no-files-found: error
+          retention-days: 90
+      - if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: voiceconnect-windows-opengl-release
+          path: voiceconnect-p2p/dist/opengl/*
+          if-no-files-found: error
+          retention-days: 90
   publish:
     needs: package
     runs-on: ubuntu-latest
