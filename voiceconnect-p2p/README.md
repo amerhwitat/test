@@ -113,3 +113,10 @@ This repository is still a prototype, not a production conferencing service. Roo
 ## Scaling and native media
 
 The built-in mesh is suitable only for small rooms. For larger meetings, add a separately deployed SFU (for example LiveKit, mediasoup or Janus) and route browser media through authenticated SFU room tokens; a mesh cannot be relabeled as SFU. The Java, Python and C++ programs remain UTF-8 chat companions. Native camera/microphone and screen sharing in those clients require platform WebRTC SDK bindings and separate device/media integration tests; compilation of the chat clients does not validate media functionality.
+
+
+## Room authentication and invitation tokens
+
+When `VOICECONNECT_AUTH_SECRET` is configured, joining a room requires a signed, room-scoped, unexpired invitation token. Generate one server-side with `POST /api/invitations`, JSON body `{"room":"team-room","ttlSeconds":3600}`, and an admin bearer token in `VOICECONNECT_ADMIN_SECRET`. Tokens use HMAC-SHA256, are scoped to one room and expire within at most 24 hours. The signing secret is never returned. Production startup refuses to run without a 32-character `VOICECONNECT_AUTH_SECRET`. Set `ALLOWED_ORIGINS` to exact comma-separated browser origins. HTTP, WebSocket upgrade, chat and signaling have basic in-memory rate limits.
+
+This is an initial invitation gate, not a full account system: no OIDC login, user database, invitation revocation, durable session management or distributed rate limiter exists yet. Public deployment still needs HTTPS/WSS termination, strict proxy configuration, managed identity, shared rate-limit infrastructure and security review. Keep admin and signing secrets in deployment secret storage; never put them in the client bundle.
