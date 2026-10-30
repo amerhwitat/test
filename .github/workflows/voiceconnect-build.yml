@@ -33,9 +33,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm libfuse2
       - run: npm install
       - run: npm test
       - run: npm run ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voiceconnect-${{ matrix.os }}-desktop
+          path: voiceconnect-p2p/dist/*
+          if-no-files-found: error
+          retention-days: 30
   native-clients:
     runs-on: ubuntu-latest
     steps:
@@ -44,10 +52,21 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m py_compile voiceconnect-p2p/clients/python/voiceconnect.py
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
       - run: javac -encoding UTF-8 voiceconnect-p2p/clients/java/VoiceConnectChat.java
+      - run: sudo apt-get update && sudo apt-get install -y libboost-system-dev
       - run: cmake -S voiceconnect-p2p/clients/cpp -B build/voiceconnect-cpp
-      - run: cmake --build build/voiceconnect-cpp
+      - run: cmake --build build/voiceconnect-cpp --config Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voiceconnect-native-chat-clients
+          path: |
+            build/voiceconnect-cpp/voiceconnect-chat
+            voiceconnect-p2p/clients/java/VoiceConnectChat.class
+            voiceconnect-p2p/clients/python/voiceconnect.py
+            voiceconnect-p2p/clients/python/requirements.txt
+          if-no-files-found: error
+          retention-days: 30
