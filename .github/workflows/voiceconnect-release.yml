@@ -33,7 +33,39 @@ jobs:
       - run: npm install --no-save sharp png-to-ico
       - run: node generate-icon.mjs
       - run: npm test
-      - run: npm run ${{ matrix.script }}
+      - name: Require Windows Authenticode certificate
+        if: runner.os == 'Windows'
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CSC_LINK) -or [string]::IsNullOrWhiteSpace($env:CSC_KEY_PASSWORD)) {
+            throw "Configure WINDOWS_CSC_LINK (base64/PFX) and WINDOWS_CSC_KEY_PASSWORD before publishing a Windows release."
+          }
+      - name: Require Apple Developer ID and notarization credentials
+        if: runner.os == 'macOS'
+        env:
+          CSC_LINK: ${{ secrets.APPLE_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -eu
+          test -n "$CSC_LINK" || { echo "Missing APPLE_CSC_LINK" >&2; exit 2; }
+          test -n "$CSC_KEY_PASSWORD" || { echo "Missing APPLE_CSC_KEY_PASSWORD" >&2; exit 2; }
+          test -n "$APPLE_ID" || { echo "Missing APPLE_ID" >&2; exit 2; }
+          test -n "$APPLE_APP_SPECIFIC_PASSWORD" || { echo "Missing APPLE_APP_SPECIFIC_PASSWORD" >&2; exit 2; }
+          test -n "$APPLE_TEAM_ID" || { echo "Missing APPLE_TEAM_ID" >&2; exit 2; }
+      - name: Build signed platform packages
+        env:
+          CSC_LINK: ${{ runner.os == 'Windows' && secrets.WINDOWS_CSC_LINK || secrets.APPLE_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'Windows' && secrets.WINDOWS_CSC_KEY_PASSWORD || secrets.APPLE_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run ${{ matrix.script }}
       - uses: actions/upload-artifact@v4
         with:
           name: voiceconnect-${{ matrix.os }}-release
