@@ -63,13 +63,13 @@ function renderKnownPeers() {
 }
 async function forgetKnownPeer(userGuid) {
   if (!userGuid || !knownPeers.has(userGuid)) return;
+  knownPeers.delete(userGuid);
+  renderKnownPeers();
   if (window.voiceConnectDesktop?.forgetPeer) await window.voiceConnectDesktop.forgetPeer(userGuid);
   else {
     const list=JSON.parse(localStorage.getItem("vc-known-peers")||"[]").filter(peer=>peer.userGuid!==userGuid);
     localStorage.setItem("vc-known-peers",JSON.stringify(list));
   }
-  knownPeers.delete(userGuid);
-  renderKnownPeers();
 }
 async function loadKnownPeers() {
   try {
