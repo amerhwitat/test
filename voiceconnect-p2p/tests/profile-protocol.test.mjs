@@ -55,7 +55,8 @@ test("room profile metadata is synchronized and attached to chat", async () => {
       userGuid: "123e4567-e89b-42d3-a456-426614174000",
       nickname: "Alice",
       avatar: "data:image/png;base64,aGVsbG8=",
-      saveLocally: false
+      saveLocally: false,
+      shareAddress: false
     }));
     await aliceSaved;
 
@@ -76,12 +77,23 @@ test("room profile metadata is synchronized and attached to chat", async () => {
       userGuid: "123e4567-e89b-42d3-a456-426614174001",
       nickname: "Bob",
       avatar: "data:image/webp;base64,d29ybGQ=",
-      saveLocally: false
+      saveLocally: false,
+      shareAddress: true
     }));
     await bobSaved;
     const profileUpdate = await aliceSawBobProfile;
     assert.equal(profileUpdate.peer.nickname, "Bob");
     assert.equal(profileUpdate.peer.avatar, "data:image/webp;base64,d29ybGQ=");
+    assert.equal(profileUpdate.peer.addressShared, true);
+    assert.equal(typeof profileUpdate.peer.observedIp, "string");
+    assert.ok(profileUpdate.peer.observedIp.length > 0);
+
+    const bobPeerExchange = waitForMessage(bob, m => m.type === "peer-exchange");
+    bob.send(JSON.stringify({ type: "peer-exchange" }));
+    const exchange = await bobPeerExchange;
+    assert.equal(exchange.peers.length, 1);
+    assert.equal(exchange.peers[0].nickname, "Alice");
+    assert.equal(exchange.peers[0].addressShared, undefined);
 
     const aliceSawChat = waitForMessage(alice, m => m.type === "chat");
     bob.send(JSON.stringify({ type: "chat", text: "Hello with profile" }));
@@ -90,6 +102,13 @@ test("room profile metadata is synchronized and attached to chat", async () => {
     assert.equal(chat.message.userGuid, "123e4567-e89b-42d3-a456-426614174001");
     assert.equal(chat.message.avatar, "data:image/webp;base64,d29ybGQ=");
     assert.equal(chat.message.text, "Hello with profile");
+
+    const aliceSawEncryptedChat = waitForMessage(alice, m => m.type === "chat" && m.message.encrypted === true);
+    bob.send(JSON.stringify({ type: "chat", encrypted: true, iv: "AAECAwQFBgcICQoL", ciphertext: "Y2lwaGVydGV4dA==" }));
+    const encryptedChat = await aliceSawEncryptedChat;
+    assert.equal(encryptedChat.message.text, "");
+    assert.equal(encryptedChat.message.iv, "AAECAwQFBgcICQoL");
+    assert.equal(encryptedChat.message.ciphertext, "Y2lwaGVydGV4dA==");
   } finally {
     await closeSocket(alice);
     await closeSocket(bob);
