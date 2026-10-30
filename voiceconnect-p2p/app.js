@@ -1,6 +1,6 @@
 import { deriveChatKey, encryptChatPayload, decryptChatPayload } from "./chat-crypto.js";
 import { isValidPublicIp, buildInvitationLink } from "./invitation.js";
-import { MAX_FILE_BYTES, FILE_CHUNK_BYTES, encodeBase64, decodeBase64, validateFileOffer } from "./file-transfer.js";
+import { MAX_FILE_BYTES, FILE_CHUNK_BYTES, encodeBase64, decodeBase64, validateFileOffer, assembleFileChunks } from "./file-transfer.js";
 const $ = (id) => document.getElementById(id);
 const roomInput = $("room"), joinBtn = $("joinBtn"), leaveBtn = $("leaveBtn");
 const startMediaBtn = $("startMediaBtn"), muteBtn = $("muteBtn"), cameraBtn = $("cameraBtn");
@@ -346,7 +346,7 @@ function attachDirectDataChannel(channel){
     directStatus("Direct peer connection established. Media and chat travel peer-to-peer.");
     sendDirectProfile();refreshFileRecipients();
   };
-  channel.onclose=()=>{directStatus("Direct data channel closed.");refreshFileRecipients();};
+  channel.onclose=()=>{cleanupFileTransfersForChannel(channel);directStatus("Direct data channel closed.");refreshFileRecipients();};
   channel.onmessage=async event=>{
     try{
       if(typeof event.data!=="string"||event.data.length>20000)return;
