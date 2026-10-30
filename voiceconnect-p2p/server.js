@@ -118,6 +118,17 @@ server.on("upgrade", (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
 });
 function send(ws, message) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message)); }
+export function buildRegistryEntry({ peerId, userGuid, nickname, avatar, observedIp, shareAddress, firstSeen, lastSeen }) {
+  return {
+    peerId,
+    userGuid,
+    nickname,
+    avatar,
+    ...(shareAddress === true && observedIp ? { observedIp } : {}),
+    firstSeen,
+    lastSeen
+  };
+}
 function profileFor(ws) {
   return { peerId: ws.id, userGuid: ws.profile?.userGuid || ws.id, nickname: ws.profile?.nickname || "Guest", avatar: ws.profile?.avatar || "", addressShared: Boolean(ws.shareAddress), ...(ws.shareAddress && ws.ip ? { observedIp: ws.ip } : {}) };
 }
@@ -167,7 +178,7 @@ wss.on("connection", (ws, req) => {
       if (consent) {
         const now = new Date().toISOString();
         const previous = registry.peers.find(p => p.userGuid === suppliedGuid);
-        const entry = { peerId: ws.id, userGuid: suppliedGuid, nickname, avatar, observedIp: ws.ip, firstSeen: previous?.firstSeen || now, lastSeen: now };
+        const entry = buildRegistryEntry({ peerId: ws.id, userGuid: suppliedGuid, nickname, avatar, observedIp: ws.ip, shareAddress: ws.shareAddress, firstSeen: previous?.firstSeen || now, lastSeen: now });
         registry.peers = [entry, ...registry.peers.filter(p => p.userGuid !== suppliedGuid)].slice(0, 500);
         try { await persistRegistry(); send(ws, { type: "profile-saved", saved: true }); }
         catch (err) { send(ws, { type: "error", message: "Could not save local peer registry: " + err.message }); }
