@@ -12,7 +12,9 @@
     "build:win": "electron-builder --win nsis msi portable",
     "build:linux": "electron-builder --linux AppImage deb",
     "build:mac": "electron-builder --mac dmg zip",
-    "test": "node --check server.js && node --check app.js && node --check electron-main.cjs && node --check preload.cjs && node --test tests/*.test.mjs"
+    "test": "node --check server.js && node --check app.js && node --check electron-main.cjs && node --check preload.cjs && node --test tests/*.test.mjs",
+    "build:win:directx": "electron-builder --win nsis msi portable --config electron-builder.directx.cjs",
+    "build:win:opengl": "electron-builder --win nsis msi portable --config electron-builder.opengl.cjs"
   },
   "engines": {
     "node": ">=20"
@@ -60,6 +62,19 @@
         "zip"
       ],
       "category": "public.app-category.social-networking"
+    },
+    "msi": {
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   },
   "homepage": "https://github.com/amerhwitat/test/tree/main/voiceconnect-p2p",
