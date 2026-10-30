@@ -81,21 +81,32 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: voiceconnect-${{ matrix.os }}-release
-          path: voiceconnect-p2p/dist/*
+          path: |
+            voiceconnect-p2p/dist/*.exe
+            voiceconnect-p2p/dist/*.msi
+            voiceconnect-p2p/dist/*.AppImage
+            voiceconnect-p2p/dist/*.deb
+            voiceconnect-p2p/dist/*.dmg
+            voiceconnect-p2p/dist/*.zip
+            voiceconnect-p2p/dist/*.rpm
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: voiceconnect-windows-directx-release
-          path: voiceconnect-p2p/dist/directx/*
+          path: |
+            voiceconnect-p2p/dist/directx/*.exe
+            voiceconnect-p2p/dist/directx/*.msi
           if-no-files-found: error
           retention-days: 90
       - if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: voiceconnect-windows-opengl-release
-          path: voiceconnect-p2p/dist/opengl/*
+          path: |
+            voiceconnect-p2p/dist/opengl/*.exe
+            voiceconnect-p2p/dist/opengl/*.msi
           if-no-files-found: error
           retention-days: 90
   publish:
