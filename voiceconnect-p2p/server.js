@@ -112,4 +112,4 @@ wss.on("connection", (ws, req) => {
   ws.on("close", () => leave(ws));
   ws.on("error", () => leave(ws));
 });
-export function startServer() {\n  server.listen(port, "127.0.0.1", () => console.log(`VoiceConnect P2P listening on http://127.0.0.1:${port}; registry: ${registryPath}`));\n  return server;\n}\n\nif (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) startServer();
+export function startServer() {\n  server.listen(port, process.env.HOST || "0.0.0.0", () => console.log(`VoiceConnect P2P listening on http://${process.env.HOST || "0.0.0.0"}:${port}; registry: ${registryPath}`));\n  return server;\n}\n\nif (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) startServer();
