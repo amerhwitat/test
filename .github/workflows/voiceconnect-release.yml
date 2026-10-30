@@ -61,14 +61,14 @@ jobs:
       - if: runner.os == 'Windows'
         name: Build DirectX 11 Windows packages
         env:
-          CSC_LINK: \${{ secrets.WINDOWS_CSC_LINK }}
-          CSC_KEY_PASSWORD: \${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
         run: npm run build:win:directx
       - if: runner.os == 'Windows'
         name: Build OpenGL Windows packages
         env:
-          CSC_LINK: \${{ secrets.WINDOWS_CSC_LINK }}
-          CSC_KEY_PASSWORD: \${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
         run: npm run build:win:opengl
       - name: Build signed platform packages
         env:
