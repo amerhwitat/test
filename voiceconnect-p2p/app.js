@@ -102,7 +102,7 @@ async function renegotiatePeer(id, pc) {
 }
 async function startScreenShare() {
   if (!navigator.mediaDevices?.getDisplayMedia) throw new Error("Screen sharing is not supported by this browser.");
-  screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: false });
+  screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: true });
   const track = screenStream.getVideoTracks()[0];
   $("localScreenPreview").srcObject = screenStream;
   $("localScreenPreview").hidden = false;
