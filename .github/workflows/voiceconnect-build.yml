@@ -41,6 +41,18 @@ jobs:
       - run: npm test
       - run: npm run ${{ matrix.script }}
       - if: runner.os == 'Windows'
+        name: Verify DirectX and OpenGL MSI and portable artifacts
+        shell: pwsh
+        run: |
+          foreach ($backend in @("directx", "opengl")) {
+            $folder = Join-Path $PWD "dist/$backend"
+            $msi = Get-ChildItem $folder -Filter *.msi -File -ErrorAction SilentlyContinue
+            $portable = Get-ChildItem $folder -Filter *.exe -File -ErrorAction SilentlyContinue
+            if (!$msi) { throw "Missing $backend MSI artifact in $folder" }
+            if (!$portable) { throw "Missing $backend portable executable in $folder" }
+            Write-Host "$backend MSI: $($msi[0].Name); portable: $($portable[0].Name)"
+          }
+      - if: runner.os == 'Windows'
         name: Launch packaged desktop and verify GUI startup
         shell: pwsh
         run: |
