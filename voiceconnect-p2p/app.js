@@ -553,6 +553,7 @@ async function stopScreenShare() {
   const old = screenStream;
   screenStream = null;
   old.getTracks().forEach(t => t.stop());
+  if(window.voiceConnectDesktop?.revokeMediaConsent)await window.voiceConnectDesktop.revokeMediaConsent("screen");
   $("localScreenPreview").srcObject = null;
   $("localScreenPreview").hidden = true;
   const cameraTrack = localStream?.getVideoTracks()[0] || null;
@@ -563,7 +564,6 @@ async function stopScreenShare() {
     else if (sender && !cameraTrack) { try { item.pc.removeTrack(sender); } catch {} }
     await renegotiatePeer(id, item.pc);
   }
-  if(window.voiceConnectDesktop?.revokeMediaConsent)await window.voiceConnectDesktop.revokeMediaConsent("screen");
   shareScreenBtn.textContent = "Share screen";
   status("Screen sharing stopped", !!roomName);
 }
