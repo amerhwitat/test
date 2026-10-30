@@ -14,7 +14,7 @@ test("signed peer record verifies and is bound to its Ed25519 identity", () => {
 
 test("peer records reject expiry, future issuance and excessive TTL", () => {
   const pair = generateKeyPairSync("ed25519");
-  const record = createSignedPeerRecord({ ...pair, now: 10000 });
+  const record = createSignedPeerRecord({ ...pair, now: 60000 });
   assert.equal(verifySignedPeerRecord(record, { now: record.expiresAt }), false);
   assert.equal(verifySignedPeerRecord(record, { now: 0 }), false);
   assert.throws(() => createSignedPeerRecord({ ...pair, ttlMs: MAX_TTL_MS + 1 }), /TTL/);
