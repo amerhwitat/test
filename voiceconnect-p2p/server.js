@@ -120,7 +120,7 @@ server.on("upgrade", (req, socket, head) => {
 });
 function send(ws, message) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message)); }
 function profileFor(ws) {
-  return { peerId: ws.id, userGuid: ws.profile?.userGuid || ws.id, nickname: ws.profile?.nickname || "Guest", avatar: ws.profile?.avatar || "", ...(ws.shareAddress && ws.ip ? { observedIp: ws.ip, addressShared: true } : {}) };
+  return { peerId: ws.id, userGuid: ws.profile?.userGuid || ws.id, nickname: ws.profile?.nickname || "Guest", avatar: ws.profile?.avatar || "", addressShared: Boolean(ws.shareAddress), ...(ws.shareAddress && ws.ip ? { observedIp: ws.ip } : {}) };
 }
 function leave(ws) {
   const room = rooms.get(ws.room);
@@ -171,7 +171,7 @@ wss.on("connection", (ws, req) => {
         try { await persistRegistry(); send(ws, { type: "profile-saved", saved: true }); }
         catch (err) { send(ws, { type: "error", message: "Could not save local peer registry: " + err.message }); }
       } else send(ws, { type: "profile-saved", saved: false });
-      for (const peer of rooms.get(ws.room)?.values() || []) if (peer !== ws) send(peer, { type: "peer-profile", peer: profileFor(ws) });
+      for (const peer of rooms.get(ws.room)?.values() || []) if (peer !== ws) send(peer, { type: "peer-profile", peer: { ...profileFor(ws), profileUpdated: true } });
       send(ws, { type: "peer-exchange", peers: [...(rooms.get(ws.room)?.values() || [])].filter(peer => peer !== ws).map(profileFor) });
       return;
     }
