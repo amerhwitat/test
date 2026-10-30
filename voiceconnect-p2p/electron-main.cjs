@@ -4,6 +4,18 @@ const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 const net = require("node:net");
 
+
+const graphicsBackend = process.env.VOICECONNECT_GRAPHICS_BACKEND || "auto";
+if (process.platform === "win32" && graphicsBackend === "directx") {
+  // Chromium's ANGLE Direct3D 11 backend; this is a GPU backend variant,
+  // not a claim that the web UI has been rewritten as a native D3D renderer.
+  app.commandLine.appendSwitch("use-gl", "angle");
+  app.commandLine.appendSwitch("use-angle", "d3d11");
+} else if (process.platform === "win32" && graphicsBackend === "opengl") {
+  app.commandLine.appendSwitch("use-gl", "angle");
+  app.commandLine.appendSwitch("use-angle", "gl");
+}
+
 let localServer;
 let mainWindow;
 let startupLog;
@@ -128,7 +140,7 @@ async function startDesktop() {
   try {
     startupLog = path.join(app.getPath("userData"), "logs", "startup.log");
     fs.mkdirSync(path.dirname(startupLog), { recursive: true });
-    log("Starting VoiceConnect P2P desktop shell");
+    log("Starting VoiceConnect P2P desktop shell; graphics backend: " + graphicsBackend);
 
     const proxy = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
     if (proxy) {
