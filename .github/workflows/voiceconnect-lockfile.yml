@@ -1,0 +1,41 @@
+name: VoiceConnect reproducible lockfile
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: voiceconnect-lockfile-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  generate-lockfile:
+    if: github.ref == 'refs/heads/feat/voiceconnect-p2p-camera'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: voiceconnect-p2p
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/voiceconnect-p2p-camera
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Resolve and write npm lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Verify clean reproducible installation from lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Commit lockfile to the approved feature branch
+        working-directory: .
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add voiceconnect-p2p/package-lock.json
+          if git diff --cached --quiet; then
+            echo "package-lock.json is already current."
+            exit 0
+          fi
+          git commit -m "build(voiceconnect): commit reproducible npm lockfile"
+          git push origin HEAD:refs/heads/feat/voiceconnect-p2p-camera
