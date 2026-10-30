@@ -26,3 +26,26 @@ export function validateFileOffer(offer) {
     Number.isSafeInteger(offer.totalChunks) && offer.totalChunks === Math.ceil(offer.size / FILE_CHUNK_BYTES) &&
     typeof offer.sha256 === "string" && /^[a-f0-9]{64}$/i.test(offer.sha256));
 }
+
+export function assembleFileChunks(chunks, expectedSize) {
+  if (!Number.isSafeInteger(expectedSize) || expectedSize < 0 || expectedSize > MAX_FILE_BYTES) {
+    throw new RangeError("Invalid expected file size");
+  }
+  const expectedCount = Math.ceil(expectedSize / FILE_CHUNK_BYTES);
+  if (!Array.isArray(chunks) || chunks.length !== expectedCount) {
+    throw new TypeError("File chunk count does not match the offer");
+  }
+  const output = new Uint8Array(expectedSize);
+  let offset = 0;
+  for (let index = 0; index < chunks.length; index++) {
+    const chunk = chunks[index];
+    const expectedLength = Math.min(FILE_CHUNK_BYTES, expectedSize - offset);
+    if (!(chunk instanceof Uint8Array) || chunk.length !== expectedLength) {
+      throw new TypeError("File is incomplete or contains an invalid chunk");
+    }
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+  if (offset !== expectedSize) throw new TypeError("File length does not match the offer");
+  return output;
+}
