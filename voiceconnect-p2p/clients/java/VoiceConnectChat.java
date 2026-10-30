@@ -24,10 +24,11 @@ public final class VoiceConnectChat implements WebSocket.Listener {
   public void onOpen(WebSocket ws) {
     socket = ws;
     ws.request(1);
-    ws.sendText("{\"type\":\"join\",\"room\":\"" + escape(room) + "\"}", true);
-    ws.sendText("{\"type\":\"profile\",\"userGuid\":\"" + userGuid
-        + "\",\"nickname\":\"" + escape(nickname) + "\",\"avatar\":\""
-        + avatar + "\",\"saveLocally\":false}", true);
+    ws.sendText("{\"type\":\"join\",\"room\":\"" + escape(room) + "\"}", true)
+        .thenCompose(ignored -> ws.sendText("{\"type\":\"profile\",\"userGuid\":\"" + userGuid
+            + "\",\"nickname\":\"" + escape(nickname) + "\",\"avatar\":\""
+            + avatar + "\",\"saveLocally\":false}", true))
+        .whenComplete((ignored, error) -> { if (error != null) onError(ws, error); });
     System.out.println("Connected as " + nickname + ". Type messages; /quit exits.");
   }
 
@@ -72,7 +73,7 @@ public final class VoiceConnectChat implements WebSocket.Listener {
     while (in.hasNextLine()) {
       String line = in.nextLine();
       if (line.equals("/quit")) break;
-      listener.socket.sendText("{\"type\":\"chat\",\"text\":\"" + escape(line) + "\"}", true);
+      listener.socket.sendText("{\"type\":\"chat\",\"text\":\"" + escape(line) + "\"}", true).join();
     }
     listener.socket.sendText("{\"type\":\"leave\"}", true).join();
     listener.socket.sendClose(WebSocket.NORMAL_CLOSURE, "bye").join();
