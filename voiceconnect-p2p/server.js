@@ -174,6 +174,11 @@ wss.on("connection", (ws, req) => {
       send(ws, { type: "peer-exchange", peers: [...(rooms.get(ws.room)?.values() || [])].filter(peer => peer !== ws).map(profileFor) });
       return;
     }
+    if (msg.type === "peer-exchange" && ws.room) {
+      const peers = [...(rooms.get(ws.room)?.values() || [])].filter(peer => peer !== ws).map(profileFor);
+      send(ws, { type: "peer-exchange", peers });
+      return;
+    }
     if (msg.type === "chat" && ws.room) {
       if (!rateAllowed("chat:" + ws.id, 20, 10000)) return send(ws, { type: "error", message: "Chat rate limit exceeded" });
       const encrypted = msg.encrypted === true;
