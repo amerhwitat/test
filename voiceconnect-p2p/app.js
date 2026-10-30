@@ -65,13 +65,31 @@ async function handleSignal(from,payload){
 }
 let directPeerConnection = null;
 let directDataChannel = null;
+let directRemoteProfile = {nickname:"Peer",avatar:""};
 function directStatus(message){ $("directStatus").textContent=message; }
+function sendDirectProfile(){
+  if(directDataChannel?.readyState==="open"){
+    const p=profile();
+    directDataChannel.send(JSON.stringify({type:"profile",nickname:p.nickname,avatar:p.avatar,userGuid:p.userGuid}));
+  }
+}
 function attachDirectDataChannel(channel){
   directDataChannel=channel;
-  channel.onopen=()=>directStatus("Direct peer connection established. Media and chat travel peer-to-peer.");
+  channel.onopen=()=>{
+    directStatus("Direct peer connection established. Media and chat travel peer-to-peer.");
+    sendDirectProfile();
+  };
   channel.onclose=()=>directStatus("Direct data channel closed.");
   channel.onmessage=event=>{
-    try{const msg=JSON.parse(event.data);if(msg.type==="chat")renderChat({nickname:msg.nickname||"Peer",text:msg.text,timestamp:msg.timestamp||new Date().toISOString()});}
+    try{
+      const msg=JSON.parse(event.data);
+      if(msg.type==="profile"){
+        directRemoteProfile={nickname:String(msg.nickname||"Peer").slice(0,32),avatar:typeof msg.avatar==="string"?msg.avatar:"",userGuid:msg.userGuid||""};
+        $("directRemoteNickname").textContent=directRemoteProfile.nickname;
+        $("directRemoteAvatar").src=directRemoteProfile.avatar||"avatar.svg";
+      }
+      if(msg.type==="chat")renderChat({nickname:msg.nickname||directRemoteProfile.nickname,text:msg.text,timestamp:msg.timestamp||new Date().toISOString(),avatar:msg.avatar||directRemoteProfile.avatar});
+    }
     catch{console.warn("Invalid direct data-channel message");}
   };
 }
@@ -135,7 +153,7 @@ function resetDirectConnection(){
   directPeerConnection?.close();directPeerConnection=null;
   $("directRemoteVideo").srcObject=null;
   $("directOfferInput").value="";$("directSignalOutput").value="";
-  directStatus("Direct connection reset.");
+  directRemoteProfile={nickname:"Peer",avatar:""};$("directRemoteNickname").textContent="Waiting for participant";$("directRemoteAvatar").src="avatar.svg";directStatus("Direct connection reset.");
 }
 $("directCreateOffer").addEventListener("click",()=>createDirectOffer().catch(e=>directStatus(e.message)));
 $("directCreateAnswer").addEventListener("click",()=>createDirectAnswer().catch(e=>directStatus(e.message)));
@@ -254,7 +272,8 @@ leaveBtn.addEventListener("click",leaveRoom);
 startMediaBtn.addEventListener("click",async()=>{try{await startMedia();}catch(err){status(err.message);}});
 muteBtn.addEventListener("click",()=>{muted=!muted;localStream?.getAudioTracks().forEach(t=>t.enabled=!muted);muteBtn.textContent=muted?"Unmute mic":"Mute mic";});
 cameraBtn.addEventListener("click",()=>{cameraOff=!cameraOff;localStream?.getVideoTracks().forEach(t=>t.enabled=!cameraOff);cameraBtn.textContent=cameraOff?"Turn camera on":"Turn camera off";});
-$("saveProfileBtn").addEventListener("click",sendProfile);
+$("saveProfileBtn").addEventListener("click",()=>{sendProfile();sendDirectProfile();$("profileStatus").textContent="Profile updated on this device and sent to active connections.";});
+$("nickname").addEventListener("change",()=>{const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:p.avatar,savePeer:p.saveLocally}));if(roomName)sendProfile();sendDirectProfile();});
 $("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.[0];if(!file)return;
   if(file.size>12*1024*1024)return status("Choose an image smaller than 12 MB");
   if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))return status("Choose PNG, JPEG, WebP or GIF");
@@ -266,10 +285,10 @@ $("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.
     avatarData=canvas.toDataURL("image/webp",0.82);
     const preview=$("avatarPreview");if(preview){preview.src=avatarData;preview.hidden=false;}
     const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:avatarData,savePeer:p.saveLocally}));
-    if(roomName)sendProfile();status("Local avatar loaded and saved on this device",!!roomName);
+    if(roomName)sendProfile();sendDirectProfile();status("Local avatar loaded and saved on this device",!!roomName);
   }catch(err){status("Could not read that image: "+err.message);}
 });
-$("clearAvatarBtn").addEventListener("click",()=>{avatarData="";$("avatarPreview").removeAttribute("src");$("avatarPreview").hidden=true;$("avatarFile").value="";const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:"",savePeer:p.saveLocally}));if(roomName)sendProfile();});
+$("clearAvatarBtn").addEventListener("click",()=>{avatarData="";$("avatarPreview").removeAttribute("src");$("avatarPreview").hidden=true;$("avatarFile").value="";const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:"",savePeer:p.saveLocally}));if(roomName)sendProfile();sendDirectProfile();});
 $("applyNetworkBtn").addEventListener("click",async()=>{
   const url=$("turnUrl").value.trim(),username=$("turnUser").value.trim(),credential=$("turnPass").value;
   rtcConfig={iceServers:[...defaultIceServers,...(url?[{urls:url,username,credential}]:[])]};
@@ -291,5 +310,5 @@ const emojiSet = [..."😀 😃 😄 😁 😆 😅 😂 🙂 🙃 😉 😊 �
 const emojiPicker=$("emojiPicker");
 for(const emoji of [...new Set(emojiSet)]){const b=document.createElement("button");b.type="button";b.textContent=emoji;b.title=emoji;b.addEventListener("click",()=>{$("chatInput").value+=emoji;$("chatInput").focus();});emojiPicker.append(b);}
 $("emojiBtn").addEventListener("click",()=>{emojiPicker.hidden=!emojiPicker.hidden;});
-$("chatForm").addEventListener("submit",e=>{e.preventDefault();const text=$("chatInput").value.normalize("NFC").trim();if(!text)return;if(roomName){send({type:"chat",text});}else if(directDataChannel?.readyState==="open"){directDataChannel.send(JSON.stringify({type:"chat",nickname:profile().nickname,text,timestamp:new Date().toISOString()}));renderChat({nickname:profile().nickname,text,timestamp:new Date().toISOString()});}else{return;} $("chatInput").value="";});
-function renderChat(message){const row=document.createElement("article");row.className="chat-message";const meta=document.createElement("div");meta.className="meta";const who=document.createElement("span");who.textContent=message.nickname||"Guest";const when=document.createElement("time");when.textContent=new Date(message.timestamp).toLocaleTimeString();meta.append(who,when);const body=document.createElement("p");body.textContent=message.text;row.append(meta,body);$("chatMessages").append(row);$("chatMessages").scrollTop=$("chatMessages").scrollHeight;}
+$("chatForm").addEventListener("submit",e=>{e.preventDefault();const text=$("chatInput").value.normalize("NFC").trim();if(!text)return;if(roomName){send({type:"chat",text});}else if(directDataChannel?.readyState==="open"){directDataChannel.send(JSON.stringify({type:"chat",nickname:profile().nickname,avatar:profile().avatar,text,timestamp:new Date().toISOString()}));renderChat({nickname:profile().nickname,avatar:profile().avatar,text,timestamp:new Date().toISOString()});}else{return;} $("chatInput").value="";});
+function renderChat(message){const row=document.createElement("article");row.className="chat-message";const meta=document.createElement("div");meta.className="meta";const avatar=document.createElement("img");avatar.className="chat-avatar";avatar.alt="";avatar.src=message.avatar||"avatar.svg";const who=document.createElement("span");who.textContent=message.nickname||"Guest";const when=document.createElement("time");when.textContent=new Date(message.timestamp).toLocaleTimeString();meta.append(avatar,who,when);const body=document.createElement("p");body.textContent=message.text;row.append(meta,body);$("chatMessages").append(row);$("chatMessages").scrollTop=$("chatMessages").scrollHeight;}
