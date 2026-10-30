@@ -4,6 +4,8 @@ const startMediaBtn = $("startMediaBtn"), muteBtn = $("muteBtn"), cameraBtn = $(
 const localVideo = $("localVideo"), peersNode = $("peers");
 const peerConnections = new Map(), peerProfiles = new Map(), pendingCandidates = new Map();
 let socket = null, myId = null, roomName = null, localStream = null, avatarData = "";
+const userGuid = savedProfile.userGuid || crypto.randomUUID();
+localStorage.setItem("vc-profile", JSON.stringify({...savedProfile, userGuid}));
 let muted = false, cameraOff = false;
 const defaultIceServers = [{ urls: "stun:stun.l.google.com:19302" }];
 let rtcConfig = { iceServers: defaultIceServers };
@@ -14,13 +16,13 @@ if (savedProfile.avatar) avatarData = savedProfile.avatar;
 function status(text, online = false) { $("statusText").textContent = text; $("statusDot").parentElement.classList.toggle("online", online); }
 function send(data) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data)); }
 function signal(to, payload) { send({ type: "signal", to, payload }); }
-function profile() { return { nickname: $("nickname").value.trim().slice(0,32) || "Guest", avatar: avatarData, saveLocally: $("savePeer").checked }; }
-function sendProfile() { const p = profile(); localStorage.setItem("vc-profile", JSON.stringify({ nickname:p.nickname, avatar:p.avatar, savePeer:p.saveLocally })); send({ type:"profile", ...p }); }
+function profile() { return { userGuid, nickname: $("nickname").value.trim().slice(0,32) || "Guest", avatar: avatarData, saveLocally: $("savePeer").checked }; }
+function sendProfile() { const p = profile(); localStorage.setItem("vc-profile", JSON.stringify({ userGuid, nickname:p.nickname, avatar:p.avatar, savePeer:p.saveLocally })); send({ type:"profile", ...p }); }
 function makePeerCard(id, data = {}) {
   const card = document.createElement("article"); card.className = "peer-card";
   const head = document.createElement("div"); head.className = "peer-head";
   const avatar = document.createElement("img"); avatar.className = "peer-avatar"; avatar.alt = ""; avatar.src = data.avatar || "avatar.svg";
-  const label = document.createElement("div"); label.className = "peer-label"; label.textContent = data.nickname || "Peer " + id.slice(0,8);
+  const label = document.createElement("div"); label.className = "peer-label"; label.textContent = (data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8);
   head.append(avatar,label);
   const video = document.createElement("video"); video.autoplay = true; video.playsInline = true;
   card.append(head,video); peersNode.append(card);
@@ -28,7 +30,7 @@ function makePeerCard(id, data = {}) {
 }
 function updatePeerCard(id, data) {
   peerProfiles.set(id,data);
-  const item=peerConnections.get(id); if(item){ item.label.textContent=data.nickname || "Peer "+id.slice(0,8); item.avatar.src=data.avatar || "avatar.svg"; }
+  const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8); item.avatar.src=data.avatar || "avatar.svg"; }
 }
 async function createPeer(id, initiator, data = {}) {
   if(peerConnections.has(id)) return peerConnections.get(id).pc;
@@ -70,7 +72,8 @@ function connectSignaling(){return new Promise((resolve,reject)=>{
     if(msg.type==="peer-joined"){peerProfiles.set(msg.peer.peerId,msg.peer);status("Peer discovered · "+msg.peer.nickname,true);await createPeer(msg.peer.peerId,false,msg.peer);}
     if(msg.type==="peer-profile")updatePeerCard(msg.peer.peerId,msg.peer);
     if(msg.type==="peer-left"){removePeer(msg.peerId);peerProfiles.delete(msg.peerId);status("Peer left · "+roomName,true);}
-    if(msg.type==="signal")await handleSignal(msg.from,msg.payload);\n    if(msg.type==="chat")renderChat(msg.message);
+    if(msg.type==="signal")await handleSignal(msg.from,msg.payload);
+    if(msg.type==="chat")renderChat(msg.message);
     if(msg.type==="profile-saved")$("profileStatus").textContent=msg.saved?"Profile and observed IP saved to local JSON registry.":"Profile active for this session; persistent IP logging is off.";
     if(msg.type==="error")status(msg.message);
   };
@@ -95,7 +98,20 @@ startMediaBtn.addEventListener("click",async()=>{try{await startMedia();}catch(e
 muteBtn.addEventListener("click",()=>{muted=!muted;localStream?.getAudioTracks().forEach(t=>t.enabled=!muted);muteBtn.textContent=muted?"Unmute mic":"Mute mic";});
 cameraBtn.addEventListener("click",()=>{cameraOff=!cameraOff;localStream?.getVideoTracks().forEach(t=>t.enabled=!cameraOff);cameraBtn.textContent=cameraOff?"Turn camera on":"Turn camera off";});
 $("saveProfileBtn").addEventListener("click",sendProfile);
-$("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.[0];if(!file)return;if(file.size>100000) return status("Avatar must be 100 KB or smaller");if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))return status("Choose PNG, JPEG, WebP or GIF");avatarData=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});if(roomName)sendProfile();});
+$("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.[0];if(!file)return;
+  if(file.size>12*1024*1024)return status("Choose an image smaller than 12 MB");
+  if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))return status("Choose PNG, JPEG, WebP or GIF");
+  try{
+    const source=await createImageBitmap(file);
+    const scale=Math.min(1,512/Math.max(source.width,source.height));
+    const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(source.width*scale));canvas.height=Math.max(1,Math.round(source.height*scale));
+    const ctx=canvas.getContext("2d");ctx.drawImage(source,0,0,canvas.width,canvas.height);source.close();
+    avatarData=canvas.toDataURL("image/webp",0.82);
+    const preview=$("avatarPreview");if(preview){preview.src=avatarData;preview.hidden=false;}
+    const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:avatarData,savePeer:p.saveLocally}));
+    if(roomName)sendProfile();status("Local avatar loaded and saved on this device",!!roomName);
+  }catch(err){status("Could not read that image: "+err.message);}
+});
 $("applyNetworkBtn").addEventListener("click",async()=>{
   const url=$("turnUrl").value.trim(),username=$("turnUser").value.trim(),credential=$("turnPass").value;
   rtcConfig={iceServers:[...defaultIceServers,...(url?[{urls:url,username,credential}]:[])]};
