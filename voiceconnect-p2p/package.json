@@ -12,7 +12,7 @@
     "build:win": "electron-builder --win nsis msi portable",
     "build:linux": "electron-builder --linux AppImage deb",
     "build:mac": "electron-builder --mac dmg zip",
-    "test": "node --check server.js && node --check app.js && node --check electron-main.cjs"
+    "test": "node --check server.js && node --check app.js && node --check electron-main.cjs && node --check preload.cjs"
   },
   "engines": {
     "node": ">=20"
