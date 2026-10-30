@@ -54,3 +54,5 @@ The reviewer must be independent of the implementation author, identify relevant
 - Reviewer signature:
 
 **Release gate:** no production security sign-off while the review is unperformed, findings remain unresolved, or the report does not identify the exact reviewed commit.
+
+- Legacy peer registry migration strips previously persisted `observedIp` values because older versions did not record whether address-sharing consent was enabled. Confirm the migration on an upgrade test with a populated persistent volume.
