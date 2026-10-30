@@ -1,3 +1,4 @@
+import { deriveChatKey, encryptChatPayload, decryptChatPayload } from "./chat-crypto.js";
 const $ = (id) => document.getElementById(id);
 const roomInput = $("room"), joinBtn = $("joinBtn"), leaveBtn = $("leaveBtn");
 const startMediaBtn = $("startMediaBtn"), muteBtn = $("muteBtn"), cameraBtn = $("cameraBtn");
@@ -22,24 +23,21 @@ function status(text, online = false) { $("statusText").textContent = text; $("s
 function send(data) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data)); }
 function signal(to, payload) { send({ type: "signal", to, payload }); }
 
-function bytesToBase64(bytes) { let binary=""; for(const byte of bytes) binary+=String.fromCharCode(byte); return btoa(binary); }
-function base64ToBytes(value) { return Uint8Array.from(atob(value), char=>char.charCodeAt(0)); }
-async function deriveChatKey(passphrase) {
-  const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(passphrase),"PBKDF2",false,["deriveKey"]);
-  return crypto.subtle.deriveKey({name:"PBKDF2",salt:new TextEncoder().encode("voiceconnect-p2p-chat-v1"),iterations:310000,hash:"SHA-256"},material,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
-}
 async function encryptChatText(text) {
-  if(!encryptionKey) return {text,encrypted:false};
-  const iv=crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext=await crypto.subtle.encrypt({name:"AES-GCM",iv},encryptionKey,new TextEncoder().encode(text));
-  return {encrypted:true,iv:bytesToBase64(iv),ciphertext:bytesToBase64(new Uint8Array(ciphertext))};
+  if (!encryptionKey) {
+    if ($("encryptionEnabled").checked) throw new Error("Wait for chat-key derivation to finish.");
+    return { text, encrypted: false };
+  }
+  return encryptChatPayload(text, encryptionKey);
 }
 async function receiveChatMessage(message) {
-  if(!message?.encrypted) { renderChat(message); return; }
-  if(!encryptionKey) { renderChat({...message,text:"🔒 Encrypted message — enable chat encryption and enter the shared passphrase.",encrypted:true}); return; }
+  if (!message?.encrypted) { renderChat(message); return; }
+  if (!encryptionKey) {
+    renderChat({...message,text:"🔒 Encrypted message — enable chat encryption and enter the shared passphrase.",encrypted:true});
+    return;
+  }
   try {
-    const plaintext=await crypto.subtle.decrypt({name:"AES-GCM",iv:base64ToBytes(message.iv)},encryptionKey,base64ToBytes(message.ciphertext));
-    renderChat({...message,text:new TextDecoder().decode(plaintext),encrypted:true});
+    renderChat({...message,text:await decryptChatPayload(message,encryptionKey),encrypted:true});
   } catch {
     renderChat({...message,text:"🔒 Could not decrypt — passphrase mismatch or message authentication failed.",encrypted:true});
   }
