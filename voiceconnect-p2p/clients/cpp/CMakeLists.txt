@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(VoiceConnectChat LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(Boost REQUIRED COMPONENTS system)
+add_executable(voiceconnect-chat voiceconnect_chat.cpp)
+target_link_libraries(voiceconnect-chat PRIVATE Boost::system)
