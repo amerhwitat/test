@@ -9,6 +9,61 @@ const savedProfile = JSON.parse(localStorage.getItem("vc-profile") || "{}");
 const inviteParams = new URLSearchParams(location.search);
 if (inviteParams.get("room")) $("room").value = inviteParams.get("room");
 if (inviteParams.get("invite")) $("inviteToken").value = inviteParams.get("invite");
+const sharedInviteParams = new URLSearchParams(location.hash.replace(/^#/, ""));
+const sharedInviteIp = sharedInviteParams.get("shared-ip");
+if (sharedInviteIp && /^[0-9a-fA-F:.]{2,45}$/.test(sharedInviteIp)) {
+  $("sharedInviteIp").textContent = "The inviter voluntarily included this public IP: " + sharedInviteIp;
+}
+let checkedPublicIp = "";
+$("checkPublicIpBtn").addEventListener("click", async () => {
+  const button = $("checkPublicIpBtn");
+  button.disabled = true;
+  $("publicIpStatus").textContent = "Checking public address…";
+  try {
+    const response = await fetch("https://api64.ipify.org?format=json", { cache: "no-store", mode: "cors" });
+    if (!response.ok) throw new Error("Public IP lookup service returned HTTP " + response.status);
+    const data = await response.json();
+    if (typeof data.ip !== "string" || !/^[0-9a-fA-F:.]{2,45}$/.test(data.ip)) throw new Error("The lookup service returned an invalid IP address.");
+    checkedPublicIp = data.ip;
+    $("publicIpValue").value = checkedPublicIp;
+    $("publicIpStatus").textContent = "Public address checked successfully.";
+  } catch (error) {
+    checkedPublicIp = "";
+    $("publicIpValue").value = "";
+    $("publicIpStatus").textContent = "Could not check IP: " + error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+$("createInviteLinkBtn").addEventListener("click", () => {
+  const room = $("room").value.trim();
+  const token = $("inviteToken").value.trim();
+  if (!/^[a-zA-Z0-9_-]{3,64}$/.test(room)) { status("Enter a valid room name before creating an invitation."); return; }
+  if (!token) { status("Paste a valid room invitation token before creating a shareable invitation link."); return; }
+  if ($("includeIpInInvite").checked && !checkedPublicIp) { status("Check your public IP first, or turn off IP inclusion."); return; }
+  const url = new URL(location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("room", room);
+  url.searchParams.set("invite", token);
+  if ($("includeIpInInvite").checked) url.hash = new URLSearchParams({ "shared-ip": checkedPublicIp }).toString();
+  $("inviteLinkOutput").value = url.toString();
+  $("copyInviteLinkBtn").disabled = false;
+  status($("includeIpInInvite").checked ? "Invitation created with your public IP. Review it before sharing." : "Invitation created without your public IP.");
+});
+$("copyInviteLinkBtn").addEventListener("click", async () => {
+  const value = $("inviteLinkOutput").value;
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    status("Invitation link copied. Share it only with people you trust.");
+  } catch {
+    $("inviteLinkOutput").focus();
+    $("inviteLinkOutput").select();
+    status("Clipboard unavailable. Select and copy the invitation link manually.");
+  }
+});
+
 const userGuid = savedProfile.userGuid || crypto.randomUUID();
 localStorage.setItem("vc-profile", JSON.stringify({...savedProfile, userGuid}));
 let muted = false, cameraOff = false, encryptionKey = null;
