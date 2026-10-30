@@ -11,10 +11,10 @@ This file records evidence, not aspirations. A source file, unit test, queued jo
 - Linux desktop packaging: passed in workflow run 41116676703.
 - macOS desktop packaging: passed in workflow run 41116676703.
 - Browser extensions and native companion chat clients: passed in workflow run 41116676703.
-- Dependency audit from the previous resolved tree: macOS and Ubuntu each reported 2 high-severity vulnerable package entries, 0 critical. The direct finding was Electron; the transitive finding was extract-zip (symlink/archive path traversal advisories). npm reported Electron 41.10.7 as a non-major remediation candidate. Electron is now pinned to 41.10.7. The next cross-platform audit must prove the findings are gone; this change is not itself proof.
-- CI now runs on Node 22, matching the `@electron/rebuild` and `node-abi` engine requirement (Node >=22.12.0), and fails builds if high or critical npm audit findings remain.
+- Dependency audit from the previous resolved tree: macOS and Ubuntu each reported 2 high-severity vulnerable package entries, 0 critical. The direct finding was Electron; the transitive finding was extract-zip (symlink/archive path traversal advisories). Electron 41.10.7 removed the extract-zip finding but left 1 high Electron advisory (origin-attribution, cookie, pointer-lock, extension permission, GPU frame-geometry and certificate-mitigation advisories). npm's remaining remediation candidate is Electron 45.2.0, a major-version upgrade. Electron is now pinned to 45.2.0; the next cross-platform audit and build must validate it.
+- CI now runs on Node 24.22.1, matching the `@electron/rebuild` and `node-abi` engine requirement (Node >=24.0.0), and fails builds if high or critical npm audit findings remain.
 - Icon build dependencies `sharp` and `png-to-ico` are declared and pinned rather than installed as undeclared CI-only packages.
-- A manually dispatched, branch-restricted workflow has been added to resolve `voiceconnect-p2p/package-lock.json`, verify it with `npm ci`, and commit it to this feature branch. It must be run and the resulting lockfile reviewed before reproducible dependency installation can be claimed.
+- A manually dispatched, branch-restricted workflow (Node 24.22.1) has been added to resolve `voiceconnect-p2p/package-lock.json`, verify it with `npm ci`, and commit it to this feature branch. It must be run and the resulting lockfile reviewed before reproducible dependency installation can be claimed.
 
 ## Physical-device acceptance — not yet evidenced
 
