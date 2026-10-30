@@ -22,7 +22,7 @@
   "build": {
     "appId": "org.voiceconnect.p2p",
     "productName": "VoiceConnect P2P",
-    "files": ["**/*", "!data/**", "!node_modules/.cache/**"],
+    "files": ["**/*", "!data/**", "!dist/**", "!**/dist/**", "!node_modules/.cache/**"],
     "asar": true,
     "directories": { "output": "dist" },
     "win": { "target": ["nsis", "msi", "portable"], "icon": "build/icon.ico", "signAndEditExecutable": true },
