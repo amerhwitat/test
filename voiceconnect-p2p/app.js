@@ -213,7 +213,7 @@ async function startScreenShare() {
   const track = screenStream.getVideoTracks()[0];
   $("localScreenPreview").srcObject = screenStream;
   $("localScreenPreview").hidden = false;
-  if(directPeerConnection){const sender=directPeerConnection.getSenders().find(s=>s.track?.kind==="video");if(sender)await sender.replaceTrack(track);else directPeerConnection.addTrack(track,screenStream);}
+  if(directPeerConnection){const videoTransceiver=directPeerConnection.getTransceivers().find(t=>t.receiver.track.kind==="video");if(videoTransceiver)await videoTransceiver.sender.replaceTrack(track);else directPeerConnection.addTrack(track,screenStream);}
   for (const [id, item] of peerConnections) {
     const sender = item.pc.getSenders().find(s => s.track?.kind === "video");
     if (sender) await sender.replaceTrack(track);
@@ -232,7 +232,7 @@ async function stopScreenShare() {
   $("localScreenPreview").srcObject = null;
   $("localScreenPreview").hidden = true;
   const cameraTrack = localStream?.getVideoTracks()[0] || null;
-  if(directPeerConnection){const sender=directPeerConnection.getSenders().find(s=>s.track?.kind==="video");if(sender&&cameraTrack)await sender.replaceTrack(cameraTrack);else if(sender)await sender.replaceTrack(null);}
+  if(directPeerConnection){const videoTransceiver=directPeerConnection.getTransceivers().find(t=>t.receiver.track.kind==="video");if(videoTransceiver)await videoTransceiver.sender.replaceTrack(cameraTrack);}
   for (const [id, item] of peerConnections) {
     const sender = item.pc.getSenders().find(s => s.track?.kind === "video");
     if (sender && cameraTrack) await sender.replaceTrack(cameraTrack);
