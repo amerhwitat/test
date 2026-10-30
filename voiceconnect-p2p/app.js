@@ -225,11 +225,16 @@ function refreshFileRecipients(){
 }
 function attachFileChannel(channel,peerId,label){
   channel.binaryType="arraybuffer";
+  channel.addEventListener("close",()=>cleanupFileTransfersForChannel(channel));
   channel.onmessage=async event=>{
     try{if(typeof event.data!=="string"||event.data.length>20000)return;const message=JSON.parse(event.data);if(message.type?.startsWith("file-"))await handleFileProtocol(message,channel,peerId,label);}
     catch(error){console.warn("File transfer message rejected",error);fileStatus("A file transfer message was invalid.");}
   };
   channel.addEventListener("open",refreshFileRecipients);channel.addEventListener("close",refreshFileRecipients);refreshFileRecipients();
+}
+function cleanupFileTransfersForChannel(channel){
+  for(const [id,state] of incomingFiles){if(state.channel===channel){state.row?.remove();incomingFiles.delete(id);}}
+  for(const [id,state] of outgoingFiles){if(state.channel===channel){state.row.querySelector(".hint").textContent="Transfer interrupted: peer connection closed.";outgoingFiles.delete(id);}}
 }
 async function handleFileProtocol(message,channel,peerId,label){
   if(message.type==="file-offer"){
@@ -255,6 +260,10 @@ async function handleFileProtocol(message,channel,peerId,label){
     const state=outgoingFiles.get(message.id);if(state){state.row.querySelector(".hint").textContent="Recipient rejected the file.";outgoingFiles.delete(message.id);}
     return;
   }
+  if(message.type==="file-received"){
+    const state=outgoingFiles.get(message.id);if(state&&state.channel===channel){state.row.querySelector(".hint").textContent="Delivered and SHA-256 verified by "+state.label+".";outgoingFiles.delete(message.id);}
+    return;
+  }
   if(message.type==="file-chunk"){
     const state=incomingFiles.get(message.id);if(!state?.accepted||state.channel!==channel)return;
     if(!Number.isSafeInteger(message.index)||message.index<0||message.index>=state.offer.totalChunks||state.chunks[message.index])return;
@@ -266,11 +275,12 @@ async function handleFileProtocol(message,channel,peerId,label){
   }
   if(message.type==="file-complete"){
     const state=incomingFiles.get(message.id);if(!state?.accepted||state.channel!==channel)return;
-    const bytes=new Uint8Array(state.offer.size);let offset=0;
-    for(const chunk of state.chunks){if(!chunk){fileStatus("File incomplete; refusing to save.");return;}bytes.set(chunk,offset);offset+=chunk.length;}
+    let bytes;
+    try{bytes=assembleFileChunks(state.chunks,state.offer.size);}catch(error){fileStatus("File incomplete; refusing to save.");try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}incomingFiles.delete(message.id);state.row.remove();return;}
     const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),v=>v.toString(16).padStart(2,"0")).join("");
-    if(digest!==state.offer.sha256){fileStatus("File integrity check failed; file discarded.");incomingFiles.delete(message.id);state.row.remove();return;}
+    if(digest!==state.offer.sha256){fileStatus("File integrity check failed; file discarded.");try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}incomingFiles.delete(message.id);state.row.remove();return;}
     incomingFiles.delete(message.id);completedFiles.set(message.id,{offer:state.offer,bytes});
+    channel.send(JSON.stringify({type:"file-received",id:message.id}));
     state.meta.textContent="Received and SHA-256 verified. Choose where to save.";
     const save=document.createElement("button");save.className="primary";save.textContent="Save as…";state.row.append(save);
     save.addEventListener("click",()=>saveReceivedFile(message.id).catch(error=>fileStatus("Could not save file: "+error.message)));
@@ -290,7 +300,7 @@ async function sendFileChunks(id,state){
     channel.send(JSON.stringify({type:"file-chunk",id,index,data:encodeBase64(bytes)}));
     row.querySelector(".hint").textContent="Sending to "+state.label+" · "+Math.floor((index+1)/offer.totalChunks*100)+"%";
   }
-  channel.send(JSON.stringify({type:"file-complete",id}));row.querySelector(".hint").textContent="Sent to "+state.label+".";outgoingFiles.delete(id);
+  channel.send(JSON.stringify({type:"file-complete",id}));row.querySelector(".hint").textContent="Transferred; awaiting receiver integrity confirmation.";
 }
 async function startFileSend(){
   const file=$("filePicker").files?.[0];if(!file){fileStatus("Choose a file first.");return;}
