@@ -80,7 +80,7 @@ ipcMain.handle("voiceconnect:save-received-file", async (event, input) => {
   if (data.length > 25 * 1024 * 1024 || data.toString("base64") !== encoded) return { ok: false, error: "Invalid file data or size" };
   const result = await dialog.showSaveDialog(mainWindow, { title: "Save received file", defaultPath: name, buttonLabel: "Save file" });
   if (result.canceled || !result.filePath) return { ok: false, canceled: true };
-  fs.writeFileSync(result.filePath, data, { flag: "wx" });
+  fs.writeFileSync(result.filePath, data, { flag: "w" });
   return { ok: true, filePath: result.filePath };
 });
 
