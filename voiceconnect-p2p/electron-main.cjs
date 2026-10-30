@@ -49,7 +49,7 @@ ipcMain.handle("voiceconnect:remember-peer", (event, input) => {
   if (!trustedRenderer(event) || !input || typeof input !== "object") return { ok: false, error: "Untrusted request" };
   const peerId = String(input.peerId || "").slice(0, 80);
   const userGuid = String(input.userGuid || "").slice(0, 80);
-  const nickname = String(input.nickname || "Peer").replace(/[<>\\u0000-\\u001f]/g, "").slice(0, 32);
+  const nickname = String(input.nickname || "Peer").replace(/[<>\u0000-\u001f]/g, "").slice(0, 32);
   const observedIp = String(input.observedIp || "");
   if (!peerId || !userGuid || !net.isIP(observedIp)) return { ok: false, error: "A peer ID and explicitly shared valid IP address are required" };
   const now = new Date().toISOString();
