@@ -50,21 +50,26 @@ jobs:
           npm run build:win:directx
           npm run build:win:opengl
       - if: runner.os == 'Windows'
-        name: Verify DirectX and OpenGL MSI and portable artifacts
+        name: Verify and install-test base, Direct3D 11 and OpenGL packages
         shell: pwsh
         run: |
-          foreach ($backend in @("directx", "opengl")) {
-            $folder = Join-Path $PWD "dist/$backend"
-            $msi = Get-ChildItem $folder -Filter *.msi -File -ErrorAction SilentlyContinue
-            $portable = Get-ChildItem $folder -Filter *.exe -File -ErrorAction SilentlyContinue
-            if (!$msi) { throw "Missing $backend MSI artifact in $folder" }
-            if (!$portable) { throw "Missing $backend portable executable in $folder" }
-            Write-Host "$backend MSI: $($msi[0].Name); portable: $($portable[0].Name)"
+          $targets = @(
+            @{ Name = "base"; Folder = (Join-Path $PWD "dist") },
+            @{ Name = "directx"; Folder = (Join-Path $PWD "dist/directx") },
+            @{ Name = "opengl"; Folder = (Join-Path $PWD "dist/opengl") }
+          )
+          foreach ($target in $targets) {
+            $msi = Get-ChildItem $target.Folder -Filter *.msi -File -ErrorAction SilentlyContinue
+            $portable = Get-ChildItem $target.Folder -Filter *.exe -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -notmatch "uninstall|setup" }
+            if (!$msi) { throw "Missing $($target.Name) MSI artifact in $($target.Folder)" }
+            if (!$portable) { throw "Missing $($target.Name) portable executable in $($target.Folder)" }
+            Write-Host "$($target.Name) MSI: $($msi[0].Name); portable: $($portable[0].Name)"
             $install = Start-Process msiexec.exe -ArgumentList @("/i", "$($msi[0].FullName)", "/qn", "/norestart") -Wait -PassThru
-            if ($install.ExitCode -notin @(0,3010)) { throw "$backend MSI installation failed: $($install.ExitCode)" }
+            if ($install.ExitCode -notin @(0,3010)) { throw "$($target.Name) MSI installation failed: $($install.ExitCode)" }
             $uninstall = Start-Process msiexec.exe -ArgumentList @("/x", "$($msi[0].FullName)", "/qn", "/norestart") -Wait -PassThru
-            if ($uninstall.ExitCode -notin @(0,3010)) { throw "$backend MSI uninstall failed: $($uninstall.ExitCode)" }
-            Write-Host "$backend MSI install/uninstall smoke test passed."
+            if ($uninstall.ExitCode -notin @(0,3010)) { throw "$($target.Name) MSI uninstall failed: $($uninstall.ExitCode)" }
+            Write-Host "$($target.Name) MSI install/uninstall smoke test passed."
           }
       - if: runner.os == 'Windows'
         name: Launch packaged desktop and verify GUI startup
