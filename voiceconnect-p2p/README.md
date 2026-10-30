@@ -181,3 +181,20 @@ A Terraform baseline is provided in `infra/hetzner/`. Defaults are Ubuntu 24.04,
 The Terraform firewall opens TCP 80/443/3478, UDP 80/443/3478 and UDP 49160–49200; SSH is restricted to `admin_cidrs`. Reassess the unused UDP 80/443 rules and IPv6 exposure for your environment before apply. The bootstrap creates a non-root deployment account and installs Docker Engine/Compose; it does not configure DNS, obtain TLS, create provider billing, or deploy the app itself.
 
 **Important:** No Hetzner account, API token, SSH key, billing authorization, domain or DNS zone is connected to this repository session. The VPS has not been created. Provisioning incurs provider charges and requires you to run/approve Terraform from your account.
+
+
+## Desktop startup diagnostics and release signing
+
+The Electron desktop shell binds its bundled UI service to an ephemeral loopback port and waits for the HTTP listener to report readiness before creating the main window. This avoids the previous startup race and avoids conflicts with another process using port 8787. Startup diagnostics are written to Electron's user-data directory under `logs/startup.log`; initialization failures display a native error dialog with the log location.
+
+A Windows CI smoke test now launches the packaged `win-unpacked/VoiceConnect P2P.exe`, checks that the process remains alive, and requires the startup-complete log entry. This is automated runner evidence, not a substitute for testing the MSI installer, Windows Start-menu launch, upgrade/uninstall, real cameras/microphones, and screen capture on a user's physical Windows device.
+
+Before creating a release tag, configure these GitHub repository Actions secrets:
+
+- `WINDOWS_CSC_LINK`: base64-encoded PFX certificate or supported certificate URL for Authenticode signing.
+- `WINDOWS_CSC_KEY_PASSWORD`: PFX password.
+- `APPLE_CSC_LINK`: base64-encoded Developer ID Application certificate in P12 format or supported certificate URL.
+- `APPLE_CSC_KEY_PASSWORD`: P12 password.
+- `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`: Apple notarization credentials.
+
+The release workflow fails closed if the Windows signing certificate or macOS Developer ID/notarization credentials are absent. Cross-platform PR validation builds remain unsigned and do not publish. Protect these secrets and rotate them according to your signing-key policy. A successful build is not evidence of successful signature verification or notarization; inspect the generated Windows signatures with SignTool and macOS packages with `codesign` / `spctl` / notarization status before publication.
