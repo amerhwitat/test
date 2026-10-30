@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feat/voiceconnect-p2p-camera
+          ref: main
       - name: Validate deployment secrets
         env:
           SERVER_HOST: ${{ secrets.VOICECONNECT_SERVER_HOST }}
@@ -82,11 +82,11 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 "$SERVER_USER@$SERVER_HOST" 'set -eu
             cd ~/voiceconnect-p2p
             if [ ! -d .git ]; then
-              git clone --branch feat/voiceconnect-p2p-camera --single-branch https://github.com/amerhwitat/test.git .
+              git clone --branch main --single-branch https://github.com/amerhwitat/test.git .
             else
-              git fetch origin feat/voiceconnect-p2p-camera
-              git checkout feat/voiceconnect-p2p-camera
-              git reset --hard origin/feat/voiceconnect-p2p-camera
+              git fetch origin main
+              git checkout main
+              git reset --hard origin/main
             fi
             mv ~/voiceconnect.env.production .env.production
             chmod 600 .env.production
@@ -108,4 +108,20 @@ jobs:
             -H 'Content-Type: application/json' \
             --data '{"room":"deployment-check","ttlSeconds":300}' -o invite.json
           grep -q '"token":' invite.json
-          echo "HTTPS health, TURN credential issuance and invitation issuance passed."
+          node --input-type=module <<'NODE'
+          const domain = process.env.DOMAIN;
+          const ws = new WebSocket(`wss://${domain}/signal`);
+          const timeout = setTimeout(() => { console.error("WSS handshake timed out"); ws.close(); process.exit(1); }, 15000);
+          ws.addEventListener("message", event => {
+            try {
+              const message = JSON.parse(event.data);
+              if (message.type === "welcome" && typeof message.peerId === "string") {
+                clearTimeout(timeout);
+                ws.close();
+                console.log("WSS signaling handshake and welcome message passed.");
+              }
+            } catch {}
+          });
+          ws.addEventListener("error", () => { clearTimeout(timeout); console.error("WSS signaling connection failed"); process.exit(1); });
+          NODE
+          echo "HTTPS health, TURN configuration, invitation issuance and WSS signaling passed."
