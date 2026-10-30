@@ -3,6 +3,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 const net = require("node:net");
+const { sanitizeReceivedFilename, decodeReceivedFilePayload, persistSelectedFile } = require("./electron-file-save.cjs");
 
 
 const graphicsBackend = process.env.VOICECONNECT_GRAPHICS_BACKEND || "auto";
@@ -22,8 +23,12 @@ let startupLog;
 const mediaConsents = new Map();
 
 function trustedRenderer(event) {
-  try { return new URL(event.senderFrame.url).hostname === "127.0.0.1"; }
-  catch { return false; }
+  try {
+    const url = new URL(event.senderFrame.url);
+    const port = localServer?.address()?.port;
+    return url.protocol === "http:" && url.hostname === "127.0.0.1" &&
+      Number(url.port) === port && Number.isInteger(port);
+  } catch { return false; }
 }
 function knownPeersPath() {
   return path.join(app.getPath("userData"), "data", "known-peers.json");
@@ -73,15 +78,30 @@ ipcMain.handle("voiceconnect:forget-peer", (event, userGuid) => {
 
 ipcMain.handle("voiceconnect:save-received-file", async (event, input) => {
   if (!trustedRenderer(event) || !input || typeof input !== "object") return { ok: false, error: "Untrusted request" };
-  const name = String(input.name || "received-file").replace(/[\\/<>:"|?*\\u0000-\\u001f]/g, "_").slice(0, 180) || "received-file";
-  const encoded = input.data;
-  if (typeof encoded !== "string" || encoded.length > 36 * 1024 * 1024) return { ok: false, error: "File exceeds the 25 MB transfer limit" };
-  const data = Buffer.from(encoded, "base64");
-  if (data.length > 25 * 1024 * 1024 || data.toString("base64") !== encoded) return { ok: false, error: "Invalid file data or size" };
-  const result = await dialog.showSaveDialog(mainWindow, { title: "Save received file", defaultPath: name, buttonLabel: "Save file" });
+  let data;
+  try { data = decodeReceivedFilePayload(input.data); }
+  catch (error) { return { ok: false, error: error.message }; }
+  const name = sanitizeReceivedFilename(input.name);
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Save received file",
+    defaultPath: name,
+    buttonLabel: "Save file",
+    // Electron exposes this explicit flag for Linux. Windows and macOS use
+    // their native save-panel overwrite confirmation behavior.
+    properties: process.platform === "linux" ? ["showOverwriteConfirmation"] : []
+  });
   if (result.canceled || !result.filePath) return { ok: false, canceled: true };
-  fs.writeFileSync(result.filePath, data, { flag: "w" });
-  return { ok: true, filePath: result.filePath };
+  try {
+    const saved = await persistSelectedFile(result.filePath, data, {
+      // The native save panel has already asked before returning an existing
+      // destination. This callback also handles a path that races into place.
+      confirmOverwrite: async () => true
+    });
+    return saved.ok ? { ok: true, filePath: saved.filePath } : { ok: false, canceled: true };
+  } catch (error) {
+    log("Received file could not be written to the selected destination", error);
+    return { ok: false, error: "The file could not be written to the selected destination." };
+  }
 });
 
 ipcMain.handle("voiceconnect:consent-media", (event, kind) => {
