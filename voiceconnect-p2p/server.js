@@ -48,7 +48,7 @@ const server = http.createServer(async (req, res) => {
     res.end("Not found");
   }
 });
-const wss = new WebSocketServer({ server, path: "/signal", maxPayload: 64 * 1024 });
+const wss = new WebSocketServer({ server, path: "/signal", maxPayload: 256 * 1024 });
 function send(ws, message) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message)); }
 function profileFor(ws) {
   return { peerId: ws.id, nickname: ws.profile?.nickname || "Guest", avatar: ws.profile?.avatar || "" };
