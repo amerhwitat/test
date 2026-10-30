@@ -16,20 +16,70 @@
     "build:win:directx": "electron-builder --win nsis msi portable --config electron-builder.directx.cjs",
     "build:win:opengl": "electron-builder --win nsis msi portable --config electron-builder.opengl.cjs"
   },
-  "engines": { "node": ">=22.12.0" },
-  "dependencies": { "ws": "^8.18.0" },
-  "devDependencies": { "electron": "41.10.7", "electron-builder": "26.18.0" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "41.10.7",
+    "electron-builder": "26.18.0",
+    "sharp": "0.35.5",
+    "png-to-ico": "3.0.2"
+  },
   "build": {
     "appId": "org.voiceconnect.p2p",
     "productName": "VoiceConnect P2P",
-    "files": ["**/*", "!data/**", "!dist/**", "!**/dist/**", "!node_modules/.cache/**"],
+    "files": [
+      "**/*",
+      "!data/**",
+      "!dist/**",
+      "!**/dist/**",
+      "!node_modules/.cache/**"
+    ],
     "asar": true,
-    "directories": { "output": "dist" },
-    "win": { "target": ["nsis", "msi", "portable"], "icon": "build/icon.ico", "signAndEditExecutable": true },
-    "linux": { "target": ["AppImage", "deb"], "category": "Network;InstantMessaging;", "maintainer": "VoiceConnect Project", "vendor": "VoiceConnect Project" },
-    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.social-networking" },
-    "msi": { "perMachine": false, "createDesktopShortcut": true, "createStartMenuShortcut": true, "runAfterFinish": true },
-    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true }
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "msi",
+        "portable"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network;InstantMessaging;",
+      "maintainer": "VoiceConnect Project",
+      "vendor": "VoiceConnect Project"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.social-networking"
+    },
+    "msi": {
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   },
   "homepage": "https://github.com/amerhwitat/test/tree/main/voiceconnect-p2p",
   "author": "VoiceConnect Project"
