@@ -16,12 +16,13 @@ export function createSignedPeerRecord({ publicKey, privateKey, nickname = "Peer
   if (!Number.isSafeInteger(ttlMs) || ttlMs < 1000 || ttlMs > MAX_TTL_MS) throw new RangeError("Peer record TTL must be between 1 second and 15 minutes");
   if (!Array.isArray(addresses) || addresses.length > 8 || addresses.some(address => typeof address !== "string" || address.length > 256)) throw new TypeError("Invalid peer multiaddress list");
   const publicKeyDer = publicKey.export({ type: "spki", format: "der" }).toString("base64");
-  const peerId = createHash("sha256").update(Buffer.from(publicKeyDer, "base64")).digest("hex");
+  const der = Buffer.from(publicKeyDer, "base64");
+  const peerId = createHash("sha256").update(der).digest("hex");
   const record = {
     version: 1,
     peerId,
     publicKey: publicKeyDer,
-    nickname: String(nickname).replace(/[<>\\u0000-\\u001f]/g, "").slice(0, 32) || "Peer",
+    nickname: String(nickname).replace(/[<>\u0000-\u001f]/g, "").slice(0, 32) || "Peer",
     addresses: [...new Set(addresses)],
     issuedAt: now,
     expiresAt: now + ttlMs
