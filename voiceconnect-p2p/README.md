@@ -82,3 +82,10 @@ Install Node.js 20 LTS or newer, then double-click one of these files from File 
 - `desktop-windows.bat` — launches the Electron desktop application.
 
 Or run them from Command Prompt. Build macOS packages on macOS and Linux packages on Linux using the npm scripts above; Windows batch files do not cross-compile those operating systems.
+
+
+## Build artifacts and GitHub Releases
+
+The cross-platform GitHub Actions workflow builds Windows (NSIS + portable), Linux (AppImage + .deb), and macOS (DMG + ZIP) packages and uploads each platform's outputs as workflow artifacts. It also compiles the Java, Python and C++ UTF-8 chat companion clients (not native WebRTC media implementations).
+
+To publish a versioned GitHub Release, push a tag named `voiceconnect-vX.Y.Z` (for example `voiceconnect-v0.3.1`). The release workflow rebuilds all three desktop platforms, collects their outputs, generates `SHA256SUMS.txt`, and publishes the assets to the repository's GitHub Releases page. A release is only published if every platform package job succeeds. Do not create a release tag until the validation workflow is green.
