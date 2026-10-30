@@ -26,15 +26,22 @@ jobs:
       - uses: github/codeql-action/analyze@v3
         with:
           category: /language:javascript-typescript
-  dependency-review:
-    if: github.event_name == 'pull_request'
+  dependency-audit:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: voiceconnect-p2p
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/setup-node@v4
         with:
-          fail-on-severity: high
-          comment-summary-in-pr: always
+          node-version: 24.22.1
+          cache: npm
+          cache-dependency-path: voiceconnect-p2p/package-lock.json
+      - name: Install exact locked dependencies
+        run: npm ci
+      - name: Block high and critical dependency advisories
+        run: npm audit --audit-level=high
   secret-scan:
     runs-on: ubuntu-latest
     steps:
