@@ -226,7 +226,7 @@ function refreshFileRecipients(){
 function attachFileChannel(channel,peerId,label){
   channel.binaryType="arraybuffer";
   channel.onmessage=async event=>{
-    try{if(typeof event.data!=="string")return;const message=JSON.parse(event.data);if(message.type?.startsWith("file-"))await handleFileProtocol(message,channel,peerId,label);}
+    try{if(typeof event.data!=="string"||event.data.length>20000)return;const message=JSON.parse(event.data);if(message.type?.startsWith("file-"))await handleFileProtocol(message,channel,peerId,label);}
     catch(error){console.warn("File transfer message rejected",error);fileStatus("A file transfer message was invalid.");}
   };
   channel.addEventListener("open",refreshFileRecipients);channel.addEventListener("close",refreshFileRecipients);refreshFileRecipients();
@@ -339,6 +339,7 @@ function attachDirectDataChannel(channel){
   channel.onclose=()=>{directStatus("Direct data channel closed.");refreshFileRecipients();};
   channel.onmessage=async event=>{
     try{
+      if(typeof event.data!=="string"||event.data.length>20000)return;
       const msg=JSON.parse(event.data);
       if(msg.type?.startsWith("file-")){await handleFileProtocol(msg,channel,"direct",directRemoteProfile.nickname);return;}
       if(msg.type==="profile"){
