@@ -3,7 +3,8 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <iostream>\n#include <thread>
+#include <iostream>
+#include <thread>
 #include <string>
 namespace beast=boost::beast; namespace websocket=beast::websocket; namespace net=boost::asio; using tcp=net::ip::tcp;
 static std::string escape_json(const std::string&s){std::string o;for(char c:s){if(c=='"'||c=='\\')o+='\\';if((unsigned char)c>=0x20)o+=c;}return o;}
