@@ -49,8 +49,8 @@ jobs:
       - name: Require Apple Developer ID and notarization credentials
         if: runner.os == 'macOS'
         env:
-          CSC_LINK: ${{ secrets.APPLE_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CSC_KEY_PASSWORD }}
+          CSC_LINK: ${{ (secrets.MACOS_CSC_LINK || secrets.APPLE_CSC_LINK) }}
+          CSC_KEY_PASSWORD: ${{ (secrets.MACOS_CSC_KEY_PASSWORD || secrets.APPLE_CSC_KEY_PASSWORD) }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -102,6 +102,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$APP"
           spctl --assess --type execute --verbose=2 "$APP"
           test -n "$DMG" || { echo "Packaged DMG not found" >&2; exit 2; }
+          xcrun stapler validate "$APP"
           xcrun stapler validate "$DMG"
       - uses: actions/upload-artifact@v4
         with:
