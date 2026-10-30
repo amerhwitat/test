@@ -38,9 +38,19 @@ function verifyInvite(token, room) {
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml" };
 let registry = { version: 1, peers: [] };
 let persistQueue = Promise.resolve();
+let privacyMigrationPending = false;
 try {
   const parsed = JSON.parse(await readFile(registryPath, "utf8"));
-  if (parsed?.version === 1 && Array.isArray(parsed.peers)) registry = parsed;
+  if (parsed?.version === 1 && Array.isArray(parsed.peers)) {
+    registry = {
+      version: 1,
+      peers: parsed.peers.filter(peer => peer && typeof peer === "object" && !Array.isArray(peer)).map(peer => {
+        if (Object.hasOwn(peer, "observedIp")) privacyMigrationPending = true;
+        const { observedIp, ...privacySafePeer } = peer;
+        return privacySafePeer;
+      })
+    };
+  }
 } catch { /* first run: create registry on first consented profile */ }
 
 function persistRegistry() {
@@ -52,6 +62,13 @@ function persistRegistry() {
     await rename(temp, registryPath);
   });
   return persistQueue;
+}
+if (privacyMigrationPending) {
+  persistRegistry().then(() => {
+    console.log("VoiceConnect privacy migration: removed legacy persisted peer IP fields.");
+  }).catch(() => {
+    console.error("VoiceConnect privacy migration failed; legacy peer registry data requires operator attention.");
+  });
 }
 function observedIp(req) {
   if (trustProxy) {
