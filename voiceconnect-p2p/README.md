@@ -98,3 +98,18 @@ The lobby is room-based and supports up to eight concurrent participants in a pe
 The **Share screen** control uses the browser/Electron screen-capture permission prompt. A participant can share a display/window/tab, and the selected video track is renegotiated to each connected peer. Selecting **Stop sharing** or ending the operating-system share prompt restores the camera track when the camera is active. Screen audio capture is not included in this iteration. Screen capture requires a secure context (HTTPS or localhost) and explicit user permission.
 
 This is a full-mesh design: each participant sends media to each other participant. Bandwidth and CPU use grow with room size; eight is a conservative demo cap, not an SFU-scale architecture. For larger meetings, deploy an SFU such as mediasoup, LiveKit or Janus, with authenticated signaling and TURN.
+
+
+## TURN credentials (short-lived)
+
+The signaling service exposes `GET /api/ice-servers`. If `TURN_URL` and `TURN_SHARED_SECRET` are configured on the server, it issues coturn-compatible REST credentials with a one-hour expiry using HMAC-SHA1. The shared secret is never sent to clients. Configure the TURN server with the same REST shared secret and set `TURN_URL=turn:turn.example.com:3478?transport=udp,turns:turn.example.com:5349?transport=tcp`. Optionally set `STUN_URL`. Without both TURN environment variables, only the configured STUN server is returned. Protect this endpoint with authenticated rate limiting before production; short-lived credentials reduce exposure but do not by themselves prevent abuse.
+
+The browser requests this ICE configuration before opening its signaling WebSocket. Display capture now requests optional system audio as well as video; browser/OS support varies, and the user must explicitly grant capture permission.
+
+## Security and deployment boundary
+
+This repository is still a prototype, not a production conferencing service. Room names currently act as room selectors, not authenticated authorization. Before public use deploy behind HTTPS/WSS, configure a strict origin allowlist, authentication and room-scoped invitation tokens, per-account/room rate limits, abuse reporting, secure TURN, and persistent encrypted account storage. Never commit TURN secrets. Do not expose raw peer IPs in a public directory; the opt-in local registry is operator-local metadata.
+
+## Scaling and native media
+
+The built-in mesh is suitable only for small rooms. For larger meetings, add a separately deployed SFU (for example LiveKit, mediasoup or Janus) and route browser media through authenticated SFU room tokens; a mesh cannot be relabeled as SFU. The Java, Python and C++ programs remain UTF-8 chat companions. Native camera/microphone and screen sharing in those clients require platform WebRTC SDK bindings and separate device/media integration tests; compilation of the chat clients does not validate media functionality.
