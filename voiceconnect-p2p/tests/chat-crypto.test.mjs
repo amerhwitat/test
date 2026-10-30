@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-globalThis.crypto = webcrypto;
+Object.defineProperty(globalThis, "crypto", { value: webcrypto, configurable: true });
 import { deriveChatKey, encryptChatPayload, decryptChatPayload } from "../chat-crypto.js";
 
 test("AES-GCM chat payload round-trips UTF-8 and rejects a wrong passphrase", async () => {
