@@ -36,8 +36,18 @@ async function createWindow(url) {
     }
   });
 
-  mainWindow.once("ready-to-show", () => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+  const windowReady = new Promise((resolve, reject) => {
+    mainWindow.once("ready-to-show", () => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+      log("Desktop window is ready and visible");
+      resolve();
+    });
+    mainWindow.webContents.once("did-fail-load", (_event, code, description, validatedURL, isMainFrame) => {
+      if (isMainFrame) reject(new Error(`Renderer failed to load (${code}): ${description}; URL: ${validatedURL}`));
+    });
+    mainWindow.webContents.once("render-process-gone", (_event, details) => {
+      reject(new Error(`Renderer process exited before the window became visible: ${JSON.stringify(details)}`));
+    });
   });
   mainWindow.webContents.on("did-fail-load", (_event, code, description, validatedURL, isMainFrame) => {
     if (isMainFrame) log(`Renderer failed to load (${code}): ${description}; URL: ${validatedURL}`);
@@ -48,7 +58,8 @@ async function createWindow(url) {
   mainWindow.on("closed", () => { mainWindow = null; });
 
   await mainWindow.loadURL(url);
-  log(`Desktop window loaded: ${url}`);
+  await windowReady;
+  log(`Desktop window loaded and visible: ${url}`);
 }
 
 async function startDesktop() {
