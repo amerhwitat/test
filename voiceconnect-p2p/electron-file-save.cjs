@@ -7,8 +7,8 @@ const MAX_RECEIVED_FILE_BYTES = 25 * 1024 * 1024;
 
 function sanitizeReceivedFilename(value) {
   let name = String(value || "received-file")
-    .replace(/[\\\\/<>:"|?*\u0000-\u001f]/g, "_")
-    .replace(/[. ]+$/g, "")
+    .replace(/[\\\/<>:"|?*\u0000-\u001f]/g, "_")
+    .replace(/[\\\/<>:"|?*\u0000-\u001f]/g, "_")
     .replace(/^[. ]+/g, "")
     .slice(0, 180);
   if (!name) name = "received-file";
