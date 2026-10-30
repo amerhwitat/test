@@ -1,9 +1,9 @@
-FROM node:20-alpine
+FROM node:24.22.1-alpine
 ENV NODE_ENV=production PORT=8787 HOST=0.0.0.0
 WORKDIR /app
-COPY package*.json ./
-RUN npm install --omit=dev
-COPY . .
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+COPY --chown=node:node . .
 RUN mkdir -p /var/lib/voiceconnect && chown -R node:node /app /var/lib/voiceconnect
 ENV VOICECONNECT_REGISTRY=/var/lib/voiceconnect/peers.json
 USER node
