@@ -312,3 +312,19 @@ Temporary Firefox add-ons are removed when Firefox restarts. Store publication/s
 ## Validation boundaries
 
 GitHub Actions can compile/package and perform software startup and MSI smoke tests, but hosted runners do not prove behavior on a user's physical GPU, restrictive home router, carrier NAT or enterprise firewall. Actual Direct3D 11/OpenGL driver coverage, two-device audio/video, TURN relay-only, NAT combinations, upgrade from a previously installed release, and uninstall residue checks require dedicated hardware/network test runs. Do not publish a release as production-verified until those checks have recorded results.
+
+
+## Peer-to-peer file transfer
+
+Room peers and direct-call peers can send files over the existing WebRTC data channels. File contents are **not uploaded to the VoiceConnect signaling server**: the signaling service only establishes the peer connection. WebRTC data channels use DTLS encryption in transit.
+
+Transfer flow:
+1. Select a connected recipient (or connected room peers), choose a local file, and send the offer.
+2. The receiver sees the filename and size and must explicitly Accept or Reject.
+3. Accepted files are sent in bounded 12 KiB chunks, with backpressure to avoid unbounded data-channel buffering.
+4. The receiver verifies the complete file's SHA-256 digest before enabling Save As.
+5. Electron desktop uses the native operating-system Save dialog. Supported browsers use the File System Access save picker; browsers without it fall back to their normal download behavior.
+
+Current limits: 25 MiB per file; up to four simultaneous incoming offers and 50 MiB aggregate reserved incoming data. The receiver must be connected at the same time; there is no offline mailbox, cloud staging, resume-after-disconnect, folder transfer, or global peer routing. The signaling server does not store file payloads. File metadata (name, size, type and digest) is visible to the two endpoints, and the receiver should accept files only from trusted contacts. SHA-256 detects accidental/corrupt transfer; it does not independently authenticate the sender beyond the established peer connection. Browser fallback downloads may use the browser's configured download folder rather than an interactive directory picker.
+
+The Windows desktop's native Save dialog writes only after the user chooses a destination. Treat received files as untrusted: scan them with your platform security tools before opening them.
