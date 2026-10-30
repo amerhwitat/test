@@ -21,6 +21,30 @@ if ($("shareAddress")) $("shareAddress").checked = savedProfile.shareAddress ===
 function status(text, online = false) { $("statusText").textContent = text; $("statusDot").parentElement.classList.toggle("online", online); }
 function send(data) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data)); }
 function signal(to, payload) { send({ type: "signal", to, payload }); }
+
+function bytesToBase64(bytes) { let binary=""; for(const byte of bytes) binary+=String.fromCharCode(byte); return btoa(binary); }
+function base64ToBytes(value) { return Uint8Array.from(atob(value), char=>char.charCodeAt(0)); }
+async function deriveChatKey(passphrase) {
+  const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(passphrase),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt:new TextEncoder().encode("voiceconnect-p2p-chat-v1"),iterations:310000,hash:"SHA-256"},material,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+}
+async function encryptChatText(text) {
+  if(!encryptionKey) return {text,encrypted:false};
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext=await crypto.subtle.encrypt({name:"AES-GCM",iv},encryptionKey,new TextEncoder().encode(text));
+  return {encrypted:true,iv:bytesToBase64(iv),ciphertext:bytesToBase64(new Uint8Array(ciphertext))};
+}
+async function receiveChatMessage(message) {
+  if(!message?.encrypted) { renderChat(message); return; }
+  if(!encryptionKey) { renderChat({...message,text:"🔒 Encrypted message — enable chat encryption and enter the shared passphrase.",encrypted:true}); return; }
+  try {
+    const plaintext=await crypto.subtle.decrypt({name:"AES-GCM",iv:base64ToBytes(message.iv)},encryptionKey,base64ToBytes(message.ciphertext));
+    renderChat({...message,text:new TextDecoder().decode(plaintext),encrypted:true});
+  } catch {
+    renderChat({...message,text:"🔒 Could not decrypt — passphrase mismatch or message authentication failed.",encrypted:true});
+  }
+}
+
 function profile() { return { userGuid, nickname: $("nickname").value.trim().slice(0,32) || "Guest", avatar: avatarData, saveLocally: $("savePeer").checked, shareAddress: $("shareAddress")?.checked === true }; }
 function sendProfile() { const p = profile(); localStorage.setItem("vc-profile", JSON.stringify({ userGuid, nickname:p.nickname, avatar:p.avatar, savePeer:p.saveLocally, shareAddress:p.shareAddress })); send({ type:"profile", ...p }); }
 
@@ -127,7 +151,7 @@ function attachDirectDataChannel(channel){
         $("directRemoteNickname").textContent=directRemoteProfile.nickname;
         $("directRemoteAvatar").src=directRemoteProfile.avatar||"avatar.svg";
       }
-      if(msg.type==="chat")renderChat({nickname:msg.nickname||directRemoteProfile.nickname,text:msg.text,timestamp:msg.timestamp||new Date().toISOString(),avatar:msg.avatar||directRemoteProfile.avatar});
+      if(msg.type==="chat")await receiveChatMessage({...msg,nickname:msg.nickname||directRemoteProfile.nickname,timestamp:msg.timestamp||new Date().toISOString(),avatar:msg.avatar||directRemoteProfile.avatar});
     }
     catch{console.warn("Invalid direct data-channel message");}
   };
@@ -353,5 +377,18 @@ const emojiSet = [..."😀 😃 😄 😁 😆 😅 😂 🙂 🙃 😉 😊 �
 const emojiPicker=$("emojiPicker");
 for(const emoji of [...new Set(emojiSet)]){const b=document.createElement("button");b.type="button";b.textContent=emoji;b.title=emoji;b.addEventListener("click",()=>{$("chatInput").value+=emoji;$("chatInput").focus();});emojiPicker.append(b);}
 $("emojiBtn").addEventListener("click",()=>{emojiPicker.hidden=!emojiPicker.hidden;});
-$("chatForm").addEventListener("submit",e=>{e.preventDefault();const text=$("chatInput").value.normalize("NFC").trim();if(!text)return;if(roomName){send({type:"chat",text});}else if(directDataChannel?.readyState==="open"){directDataChannel.send(JSON.stringify({type:"chat",nickname:profile().nickname,avatar:profile().avatar,text,timestamp:new Date().toISOString()}));renderChat({nickname:profile().nickname,avatar:profile().avatar,text,timestamp:new Date().toISOString()});}else{return;} $("chatInput").value="";});
-function renderChat(message){const row=document.createElement("article");row.className="chat-message";const meta=document.createElement("div");meta.className="meta";const avatar=document.createElement("img");avatar.className="chat-avatar";avatar.alt="";avatar.src=message.avatar||"avatar.svg";const who=document.createElement("span");who.textContent=message.nickname||"Guest";const when=document.createElement("time");when.textContent=new Date(message.timestamp).toLocaleTimeString();meta.append(avatar,who,when);const body=document.createElement("p");body.textContent=message.text;row.append(meta,body);$("chatMessages").append(row);$("chatMessages").scrollTop=$("chatMessages").scrollHeight;}
+$("chatForm").addEventListener("submit",async e=>{e.preventDefault();const text=$("chatInput").value.normalize("NFC").trim();if(!text)return;if(!roomName&&directDataChannel?.readyState!=="open")return;try{const payload=await encryptChatText(text);if(roomName){send({type:"chat",...payload});}else{directDataChannel.send(JSON.stringify({type:"chat",nickname:profile().nickname,avatar:profile().avatar,text:payload.text,encrypted:payload.encrypted,iv:payload.iv,ciphertext:payload.ciphertext,timestamp:new Date().toISOString()}));renderChat({nickname:profile().nickname,avatar:profile().avatar,text,encrypted:payload.encrypted,timestamp:new Date().toISOString()});} $("chatInput").value="";}catch(error){$("encryptionStatus").textContent="Could not encrypt message: "+error.message;}});
+
+$("encryptionPassphrase").disabled=false;
+$("encryptionEnabled").addEventListener("change",async()=>{
+  if(!$("encryptionEnabled").checked){encryptionKey=null;$("encryptionState").textContent="Off";$("encryptionStatus").textContent="Chat encryption is off. WebRTC media and data channels remain encrypted in transit.";return;}
+  const passphrase=$("encryptionPassphrase").value;
+  if(passphrase.length<12){$("encryptionEnabled").checked=false;$("encryptionStatus").textContent="Enter a passphrase of at least 12 characters first.";return;}
+  $("encryptionStatus").textContent="Deriving encryption key…";
+  try{encryptionKey=await deriveChatKey(passphrase);$("encryptionPassphrase").disabled=true;$("encryptionState").textContent="AES-GCM on";$("encryptionStatus").textContent="Application-level chat encryption enabled. Share the exact passphrase privately with every participant.";}
+  catch(error){encryptionKey=null;$("encryptionEnabled").checked=false;$("encryptionStatus").textContent="Encryption setup failed: "+error.message;}
+});
+$("encryptionPassphrase").addEventListener("change",()=>{if($("encryptionEnabled").checked){$("encryptionEnabled").checked=false;encryptionKey=null;$("encryptionPassphrase").disabled=false;$("encryptionState").textContent="Off";$("encryptionStatus").textContent="Passphrase changed. Enable encryption again to derive a new key."; }});
+loadKnownPeers();
+
+function renderChat(message){const row=document.createElement("article");row.className="chat-message";const meta=document.createElement("div");meta.className="meta";const avatar=document.createElement("img");avatar.className="chat-avatar";avatar.alt="";avatar.src=message.avatar||"avatar.svg";const who=document.createElement("span");who.textContent=message.nickname||"Guest";const when=document.createElement("time");when.textContent=new Date(message.timestamp).toLocaleTimeString();meta.append(avatar,who,when);const body=document.createElement("p");body.textContent=message.text;if(message.encrypted){const lock=document.createElement("span");lock.className="encrypted-indicator";lock.textContent=" · encrypted";meta.append(lock);}row.append(meta,body);$("chatMessages").append(row);$("chatMessages").scrollTop=$("chatMessages").scrollHeight;}
