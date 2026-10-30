@@ -18,7 +18,7 @@
   },
   "engines": { "node": ">=20" },
   "dependencies": { "ws": "^8.18.0" },
-  "devDependencies": { "electron": "^34.0.0", "electron-builder": "^25.1.8" },
+  "devDependencies": { "electron": "41.7.1", "electron-builder": "26.18.0" },
   "build": {
     "appId": "org.voiceconnect.p2p",
     "productName": "VoiceConnect P2P",
