@@ -65,7 +65,7 @@ function observedIp(req) {
 const server = http.createServer(async (req, res) => {
   try {
     const origin = req.headers.origin;
-    if (production && (!origin || !allowedOrigins.has(origin))) { res.writeHead(403); res.end("Origin not allowed"); return; }
+    if (origin && !allowedOrigins.has(origin)) { res.writeHead(403); res.end("Origin not allowed"); return; }
     const clientIp = observedIp(req);
     if (!rateAllowed("http:" + clientIp, 120)) { res.writeHead(429, { "Retry-After": "60" }); res.end("Rate limit exceeded"); return; }
     const requestUrl = new URL(req.url, "http://localhost");
@@ -114,7 +114,7 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
 server.on("upgrade", (req, socket, head) => {
   const origin = req.headers.origin, ip = observedIp(req);
-  if ((production && (!origin || !allowedOrigins.has(origin))) || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 403 Forbidden\\r\\n\\r\\n"); socket.destroy(); return; }
+  if ((production && (!origin || !allowedOrigins.has(origin))) || (origin && !allowedOrigins.has(origin)) || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 403 Forbidden\\r\\n\\r\\n"); socket.destroy(); return; }
   if (new URL(req.url, "http://localhost").pathname !== "/signal") { socket.destroy(); return; }
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
 });
@@ -131,7 +131,7 @@ function leave(ws) {
   ws.room = null;
 }
 wss.on("connection", (ws, req) => {
-  ws.id = crypto.randomUUID();
+  ws.id = randomUUID();
   ws.room = null;
   ws.ip = observedIp(req);
   ws.profile = { userGuid: ws.id, nickname: "Guest", avatar: "" };
@@ -176,7 +176,7 @@ wss.on("connection", (ws, req) => {
       if (!rateAllowed("chat:" + ws.id, 20, 10000)) return send(ws, { type: "error", message: "Chat rate limit exceeded" });
       const text = typeof msg.text === "string" ? msg.text.normalize("NFC").slice(0, 4000) : "";
       if (!text.trim()) return;
-      const packet = { type: "chat", message: { id: crypto.randomUUID(), peerId: ws.id, userGuid: ws.profile.userGuid, nickname: ws.profile.nickname, text, timestamp: new Date().toISOString() } };
+      const packet = { type: "chat", message: { id: randomUUID(), peerId: ws.id, userGuid: ws.profile.userGuid, nickname: ws.profile.nickname, text, timestamp: new Date().toISOString() } };
       for (const peer of rooms.get(ws.room)?.values() || []) send(peer, packet);
       return;
     }
