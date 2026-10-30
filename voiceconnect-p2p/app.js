@@ -143,7 +143,7 @@ function attachDirectDataChannel(channel){
     sendDirectProfile();
   };
   channel.onclose=()=>directStatus("Direct data channel closed.");
-  channel.onmessage=event=>{
+  channel.onmessage=async event=>{
     try{
       const msg=JSON.parse(event.data);
       if(msg.type==="profile"){
@@ -381,7 +381,7 @@ $("chatForm").addEventListener("submit",async e=>{e.preventDefault();const text=
 
 $("encryptionPassphrase").disabled=false;
 $("encryptionEnabled").addEventListener("change",async()=>{
-  if(!$("encryptionEnabled").checked){encryptionKey=null;$("encryptionState").textContent="Off";$("encryptionStatus").textContent="Chat encryption is off. WebRTC media and data channels remain encrypted in transit.";return;}
+  if(!$("encryptionEnabled").checked){encryptionKey=null;$("encryptionPassphrase").disabled=false;$("encryptionState").textContent="Off";$("encryptionStatus").textContent="Chat encryption is off. WebRTC media and data channels remain encrypted in transit.";return;}
   const passphrase=$("encryptionPassphrase").value;
   if(passphrase.length<12){$("encryptionEnabled").checked=false;$("encryptionStatus").textContent="Enter a passphrase of at least 12 characters first.";return;}
   $("encryptionStatus").textContent="Deriving encryption key…";
