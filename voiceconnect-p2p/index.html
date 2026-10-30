@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071522">
+  <title>VoiceConnect P2P</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="VoiceConnect home"><span class="brand-mark">VC</span><span>VoiceConnect <small>P2P</small></span></a>
+    <span class="status"><i id="statusDot"></i><span id="statusText">Offline</span></span>
+  </header>
+  <main>
+    <section class="hero">
+      <p class="eyebrow">DIRECT MEDIA · CAMERA · MICROPHONE</p>
+      <h1>Talk face to face.<br><em>Peer to peer.</em></h1>
+      <p class="intro">Create a room or join a friend. Audio and video flow directly between browsers whenever the network allows it.</p>
+    </section>
+    <section class="connect panel">
+      <div class="room-entry">
+        <label for="room">Room name</label>
+        <input id="room" maxlength="64" value="open-room-01" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="actions">
+        <button id="joinBtn" class="primary">Join room</button>
+        <button id="leaveBtn" class="secondary" disabled>Leave</button>
+      </div>
+      <p class="hint">Share the same room name with the people you want to call.</p>
+    </section>
+    <section class="controls panel">
+      <div class="section-heading"><div><p class="eyebrow">YOUR DEVICES</p><h2>Media controls</h2></div><span id="mediaState" class="pill">Not sharing</span></div>
+      <div class="device-grid">
+        <div><label for="cameraSelect">Camera</label><select id="cameraSelect"><option value="">Default camera</option></select></div>
+        <div><label for="micSelect">Microphone</label><select id="micSelect"><option value="">Default microphone</option></select></div>
+      </div>
+      <div class="actions">
+        <button id="startMediaBtn" class="primary">Enable camera & mic</button>
+        <button id="muteBtn" class="secondary" disabled>Mute mic</button>
+        <button id="cameraBtn" class="secondary" disabled>Turn camera off</button>
+      </div>
+      <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+    </section>
+    <section class="peers-section">
+      <div class="section-heading"><div><p class="eyebrow">LIVE ROOM</p><h2>Participants</h2></div><span id="peerCount" class="pill">0 peers</span></div>
+      <div id="peers" class="peer-grid"><div class="empty panel">No one here yet. Join a room and invite a friend.</div></div>
+    </section>
+    <section class="notice">
+      <strong>Network note</strong>
+      <p>This prototype uses WebRTC for direct peer media and a small WebSocket service only for room discovery and connection negotiation. STUN helps peers discover public routes; some networks require a TURN relay. Configure TURN credentials for reliable calls across restrictive NATs. Use HTTPS in deployment—browsers restrict camera and microphone access to secure origins (localhost is allowed).</p>
+    </section>
+  </main>
+  <footer>VoiceConnect P2P · Independent implementation · Not affiliated with Microsoft DirectPlay</footer>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
