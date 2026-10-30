@@ -10,3 +10,5 @@ main{width:min(1320px,94vw)}.hero{padding:38px 0 24px}.hero h1{font-size:clamp(3
 .direct-peer-head{display:flex;align-items:center;gap:.75rem;margin:.75rem 0}.chat-message .meta{display:flex;align-items:center;gap:.45rem}.chat-avatar{width:1.65rem;height:1.65rem;border-radius:50%;object-fit:cover}
 
 .known-peers{display:grid;gap:10px}.known-peer-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#071725;color:#dcecf5;overflow-wrap:anywhere}.known-peer-row button{flex:0 0 auto}.encrypted-indicator{font-size:11px;color:var(--green);letter-spacing:.03em}.peer-card .secondary{margin-top:8px}.peer-card .secondary:disabled{opacity:.45;cursor:not-allowed}
+
+.peer-connection-state{display:block;color:var(--muted);font-size:11px;margin:.35rem 0;letter-spacing:.03em}
