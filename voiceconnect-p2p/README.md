@@ -198,3 +198,12 @@ Before creating a release tag, configure these GitHub repository Actions secrets
 - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`: Apple notarization credentials.
 
 The release workflow fails closed if the Windows signing certificate or macOS Developer ID/notarization credentials are absent. Cross-platform PR validation builds remain unsigned and do not publish. Protect these secrets and rotate them according to your signing-key policy. A successful build is not evidence of successful signature verification or notarization; inspect the generated Windows signatures with SignTool and macOS packages with `codesign` / `spctl` / notarization status before publication.
+
+
+## Camera, microphone, and desktop-sharing consent
+
+VoiceConnect does not request camera or microphone access at page load. When the user activates **Enable camera & mic**, the app asks separately whether it may use the camera and whether it may use the microphone. Either device can be declined independently; the capture constraints include only approved devices. Electron desktop builds pass those explicit choices through a narrow preload IPC bridge, and the main process limits media permission grants to the trusted loopback UI origin. The browser/operating system may additionally present its own device permission prompt. Device tracks remain local until the user joins a room and publishes them; mute and camera-off controls remain available.
+
+Screen sharing is a separate action. VoiceConnect first explains that desktop/window capture is about to begin and asks for approval. Only after approval does it call `getDisplayMedia`, which presents the platform's source-selection flow where supported. The user chooses the screen or window and can stop sharing using the app control or the platform's sharing indicator. System-audio capture depends on OS/browser support and the user's selection; it is not guaranteed on every platform. Declining device or screen access does not prevent text chat.
+
+These app-level consent prompts supplement, and do not replace, the browser/OS permission controls. Users can revoke camera/microphone permission in operating-system privacy settings or browser site settings at any time.
