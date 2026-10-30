@@ -4,7 +4,7 @@ users:
     groups: [docker, sudo]
     shell: /bin/bash
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-    ssh_authorized_keys: []
+    ssh_authorized_keys:\n      - "${ssh_public_key}"
 package_update: true
 package_upgrade: true
 packages: [ca-certificates, curl, git, ufw]
