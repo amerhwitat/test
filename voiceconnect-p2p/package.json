@@ -65,7 +65,11 @@
         "dmg",
         "zip"
       ],
-      "category": "public.app-category.social-networking"
+      "category": "public.app-category.social-networking",
+      "extendInfo": {
+        "NSCameraUsageDescription": "VoiceConnect accesses the camera only when you choose to enable video.",
+        "NSMicrophoneUsageDescription": "VoiceConnect accesses the microphone only when you choose to enable audio."
+      }
     },
     "msi": {
       "perMachine": false,
