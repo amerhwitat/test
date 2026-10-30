@@ -12,3 +12,5 @@ main{width:min(1320px,94vw)}.hero{padding:38px 0 24px}.hero h1{font-size:clamp(3
 .known-peers{display:grid;gap:10px}.known-peer-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#071725;color:#dcecf5;overflow-wrap:anywhere}.known-peer-row button{flex:0 0 auto}.encrypted-indicator{font-size:11px;color:var(--green);letter-spacing:.03em}.peer-card .secondary{margin-top:8px}.peer-card .secondary:disabled{opacity:.45;cursor:not-allowed}
 
 .peer-connection-state{display:block;color:var(--muted);font-size:11px;margin:.35rem 0;letter-spacing:.03em}
+
+.file-transfer-list{display:grid;gap:10px;margin:12px 0}.file-transfer-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:12px;background:#071725;overflow-wrap:anywhere}.file-transfer-row>div:first-child{display:grid;gap:4px;min-width:0}.file-transfer-row .actions{margin:0}.file-transfer-row button{margin:0}.file-transfer-row .hint{font-size:12px;color:var(--muted)}#fileTransferPanel input[type=file]{max-width:100%}
