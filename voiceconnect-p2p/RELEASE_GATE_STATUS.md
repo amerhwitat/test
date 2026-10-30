@@ -64,3 +64,5 @@ A preview tag must not be created until the branch is merged to main, all platfo
 - Corrected a literal escaped newline in the Caddy environment mapping that prevented `ACME_EMAIL` from being passed as its own environment variable.
 - Added CI infrastructure validation for production Compose interpolation, signaling-container image build, and Caddyfile syntax validation. This validates the deployment template, not a live DNS/TLS/TURN deployment.
 - Added macOS camera and microphone usage descriptions to the app bundle metadata. Signing/notarization remains unconfigured because owner-controlled certificates and Apple credentials are not available to the automation.
+
+- Hardened the dependency-audit capture step: npm audit must return valid JSON with both `metadata.vulnerabilities` and a package-vulnerability object. Execution failures, error payloads, malformed JSON, and incomplete reports now fail the job instead of being treated as zero findings.
