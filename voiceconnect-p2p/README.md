@@ -231,3 +231,12 @@ The offer and answer include gathered ICE candidates and must be exchanged as co
 The standard shared-room mode remains optional and uses a signaling service for automatic discovery and room chat. It can be self-hosted on an existing computer/server without Hetzner, but remote peers need a reachable signaling endpoint. The desktop direct mode avoids that dependency for two participants. Static web hosting is still needed if you choose to distribute/run the browser version from a website; the installed desktop packages do not depend on public web hosting for their local UI.
 
 The Hetzner Terraform, Docker Compose, Caddy and coturn files are optional deployment examples only. They are not required by the desktop app or direct connection workflow and are never automatically provisioned. No cloud resources are created and no billing is initiated by using direct mode.
+
+
+## Nickname and avatar identity in calls and chat
+
+Each participant can edit a display nickname (up to 32 characters) and choose a local PNG, JPEG, WebP or GIF avatar in **Profile & privacy**. The image is resized and compressed locally to a small WebP data URL; the original image file is not uploaded to an image-hosting service. The profile is stored in that app/browser's local storage and is reused on subsequent launches of the same profile. Select **Update profile** to broadcast changes to active room participants and direct-call peers.
+
+- **Room conferences:** the signaling service distributes the current nickname, avatar and user GUID to participants. Peer video cards show the participant avatar and nickname, and room chat messages include the sender avatar and nickname.
+- **Direct conferences:** after the WebRTC data channel opens, both clients exchange profile metadata directly. The remote participant's avatar and nickname appear above the remote video. Direct chat displays the sender's avatar and nickname, and profile changes are sent to the other participant.
+- **Local privacy:** avatars are embedded in the profile/message payload and are visible to connected participants. The optional savePeer consent controls persistent server-side peer-registry storage; local profile storage does not require that consent. A nickname and avatar are display metadata, not verified identity or authentication. Users can change or remove the avatar at any time.
