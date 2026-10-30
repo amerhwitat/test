@@ -120,7 +120,7 @@ server.on("upgrade", (req, socket, head) => {
 });
 function send(ws, message) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message)); }
 function profileFor(ws) {
-  return { peerId: ws.id, userGuid: ws.profile?.userGuid || ws.id, nickname: ws.profile?.nickname || "Guest", avatar: ws.profile?.avatar || "" };
+  return { peerId: ws.id, userGuid: ws.profile?.userGuid || ws.id, nickname: ws.profile?.nickname || "Guest", avatar: ws.profile?.avatar || "", ...(ws.shareAddress && ws.ip ? { observedIp: ws.ip, addressShared: true } : {}) };
 }
 function leave(ws) {
   const room = rooms.get(ws.room);
@@ -160,6 +160,7 @@ wss.on("connection", (ws, req) => {
       const avatar = typeof msg.avatar === "string" && (msg.avatar.length < 160000 && (/^https:\/\//i.test(msg.avatar) || /^data:image\/(png|jpeg|webp|gif);base64,/i.test(msg.avatar))) ? msg.avatar : "";
       const suppliedGuid = typeof msg.userGuid === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(msg.userGuid) ? msg.userGuid.toLowerCase() : ws.id;
       ws.profile = { userGuid: suppliedGuid, nickname, avatar };
+      ws.shareAddress = msg.shareAddress === true;
       const consent = msg.saveLocally === true;
       if (consent) {
         const now = new Date().toISOString();
@@ -170,13 +171,19 @@ wss.on("connection", (ws, req) => {
         catch (err) { send(ws, { type: "error", message: "Could not save local peer registry: " + err.message }); }
       } else send(ws, { type: "profile-saved", saved: false });
       for (const peer of rooms.get(ws.room)?.values() || []) if (peer !== ws) send(peer, { type: "peer-profile", peer: profileFor(ws) });
+      send(ws, { type: "peer-exchange", peers: [...(rooms.get(ws.room)?.values() || [])].filter(peer => peer !== ws).map(profileFor) });
       return;
     }
     if (msg.type === "chat" && ws.room) {
       if (!rateAllowed("chat:" + ws.id, 20, 10000)) return send(ws, { type: "error", message: "Chat rate limit exceeded" });
-      const text = typeof msg.text === "string" ? msg.text.normalize("NFC").slice(0, 4000) : "";
-      if (!text.trim()) return;
-      const packet = { type: "chat", message: { id: randomUUID(), peerId: ws.id, userGuid: ws.profile.userGuid, nickname: ws.profile.nickname, avatar: ws.profile.avatar || "", text, timestamp: new Date().toISOString() } };
+      const encrypted = msg.encrypted === true;
+      const text = encrypted ? "" : (typeof msg.text === "string" ? msg.text.normalize("NFC").slice(0, 4000) : "");
+      const ciphertext = encrypted && typeof msg.ciphertext === "string" && msg.ciphertext.length <= 12000 ? msg.ciphertext : "";
+      const iv = encrypted && typeof msg.iv === "string" && msg.iv.length <= 64 ? msg.iv : "";
+      if (encrypted ? (!ciphertext || !iv) : !text.trim()) return;
+      const message = { id: randomUUID(), peerId: ws.id, userGuid: ws.profile.userGuid, nickname: ws.profile.nickname, avatar: ws.profile.avatar || "", text, timestamp: new Date().toISOString(), encrypted };
+      if (encrypted) { message.ciphertext = ciphertext; message.iv = iv; }
+      const packet = { type: "chat", message };
       for (const peer of rooms.get(ws.room)?.values() || []) send(peer, packet);
       return;
     }
