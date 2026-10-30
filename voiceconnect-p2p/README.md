@@ -142,3 +142,26 @@ Deployment (Linux host with Docker Compose v2 and a public DNS name):
 Important: this Compose template currently provisions coturn UDP/TCP on port 3478, not TURN/TLS on 443. TURN/TLS needs a certificate and listener configuration that are deliberately not advertised here. The stack is a deployment template; no live server, DNS name, credentials or firewall have been provisioned by this repository change. Do not expose it publicly until you have set real secrets and completed an external security review.
 
 The built-in health endpoint reports signaling process health and whether TURN is configured. It does not prove media relay works.
+
+
+### Optional GitHub Actions deployment
+
+The manual workflow `.github/workflows/voiceconnect-deploy-production.yml` deploys this feature branch over SSH after an operator explicitly types `DEPLOY`. Configure a protected GitHub Environment named `production` and these environment secrets/variables before running it.
+
+**Secrets**
+- `VOICECONNECT_SERVER_HOST`: server DNS name or public IP.
+- `VOICECONNECT_SERVER_USER`: dedicated deployment account (must be able to run Docker Compose).
+- `VOICECONNECT_SERVER_SSH_KEY`: private key for that account.
+- `VOICECONNECT_SERVER_KNOWN_HOSTS`: pre-verified SSH host-key line(s); do not use an unverified ssh-keyscan result.
+- `VOICECONNECT_TURN_SHARED_SECRET`: coturn REST secret (32+ characters).
+- `VOICECONNECT_AUTH_SECRET`: invitation-signing secret (32+ characters).
+- `VOICECONNECT_ADMIN_SECRET`: admin API secret (32+ characters).
+
+**Variables**
+- `VOICECONNECT_DOMAIN`: public DNS hostname.
+- `VOICECONNECT_ACME_EMAIL`: certificate contact email.
+- `VOICECONNECT_TURN_EXTERNAL_IP`: public IPv4 address used by coturn.
+
+The host must already have Docker Engine with Compose v2, Git, a dedicated non-root deployment account, and firewall/DNS configured. Point the domain A record at the host and allow TCP 80/443, UDP/TCP 3478 and UDP 49160–49200. Use a protected environment and review who can invoke deployments. The workflow transfers the environment file over SSH and runs the deployment script; it does not provision the VPS, DNS records, cloud firewall, or SSH account.
+
+The workflow verifies HTTPS health, TURN credential issuance and invitation issuance after deployment. These HTTP checks are not a substitute for actual ICE relay tests or two-device camera/microphone/screen/system-audio acceptance. Collect those separately before declaring production-ready.
