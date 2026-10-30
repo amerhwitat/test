@@ -240,3 +240,41 @@ Each participant can edit a display nickname (up to 32 characters) and choose a 
 - **Room conferences:** the signaling service distributes the current nickname, avatar and user GUID to participants. Peer video cards show the participant avatar and nickname, and room chat messages include the sender avatar and nickname.
 - **Direct conferences:** after the WebRTC data channel opens, both clients exchange profile metadata directly. The remote participant's avatar and nickname appear above the remote video. Direct chat displays the sender's avatar and nickname, and profile changes are sent to the other participant.
 - **Local privacy:** avatars are embedded in the profile/message payload and are visible to connected participants. The optional savePeer consent controls persistent server-side peer-registry storage; local profile storage does not require that consent. A nickname and avatar are display metadata, not verified identity or authentication. Users can change or remove the avatar at any time.
+
+
+## Peer exchange and known contacts
+
+VoiceConnect now supports **room-scoped peer exchange**. A participant may explicitly opt to share the IP address observed by the signaling endpoint. Only then is that address included in their room profile and exchanged with other members of that room. No public IP is inferred from browser ICE candidates, no unrelated network traffic is inspected, and the application does not scan IP ranges or probe arbitrary hosts.
+
+In the Electron desktop build, choosing **Remember peer** stores the voluntarily shared address in the user's private application-data directory as `data/known-peers.json` (under Electron's per-user `userData` directory). The file is atomically replaced and created with owner-only permissions where the OS supports POSIX file modes. The list is loaded at startup and can be deleted entry-by-entry. Browser-only builds keep the list in local storage because browsers cannot safely write arbitrary files.
+
+A saved IP address is an identity hint and last-observed signaling address, **not necessarily a reachable WebRTC endpoint**. WebRTC peers are normally reached using ICE candidate exchange and a signaling offer/answer; a browser cannot safely or reliably reconnect by opening an arbitrary TCP connection to the other participant's observed IP. Use a room invitation or private direct offer/answer exchange to reconnect.
+
+This release implements room-scoped peer exchange, not a global internet-wide DHT crawler. The internet does not provide a legitimate list of all active chat users. A future global discovery mode should use a user-opt-in DHT namespace with signed Peer IDs, expiring address records, block lists, abuse controls and explicit address-publication consent. It must never enumerate unrelated devices.
+
+## Optional chat encryption
+
+The chat panel includes an opt-in shared-passphrase mode. It derives an AES-256-GCM key with PBKDF2-SHA-256 (310,000 iterations) and encrypts room and direct chat text before sending it. The passphrase is not transmitted to the signaling server; every participant must receive the exact same passphrase through a separate trusted channel. Wrong passphrases or modified ciphertext fail authentication. Message metadata (nickname, avatar, timing and any voluntarily shared IP) is not hidden by this chat option. This experimental passphrase mode has not received an independent cryptographic audit and should not be used as a substitute for a reviewed secure messenger.
+
+WebRTC audio, video and data channels are already encrypted in transit by the WebRTC security architecture (DTLS-SRTP for media and DTLS for data channels). That transport encryption is mandatory in WebRTC; the application does not offer an insecure plaintext media mode. The passphrase switch controls the additional application-level encryption of chat text only. Use HTTPS/WSS for signaling so invitation tokens and profile updates are also protected in transit.
+
+## DirectX 11 and OpenGL Windows variants
+
+The Windows desktop build now has two separately packaged Chromium GPU-backend variants:
+
+- `npm run build:win:directx` — Electron/Chromium ANGLE using the Direct3D 11 backend.
+- `npm run build:win:opengl` — Electron/Chromium ANGLE using the OpenGL backend.
+- `npm run build:win` — standard Windows NSIS, MSI and portable targets.
+
+The variants use distinct Electron entry points, product names and output directories (`dist/directx` and `dist/opengl`). These are GPU-rendering backend builds of the same Electron/WebRTC application, not separate native DirectX 12 and OpenGL rewrites. Hardware support and fallback behavior must be verified on actual Windows GPU/driver combinations. Windows CI builds and archives both variants; successful CI packaging is required before release.
+
+## External protocol research and code provenance
+
+The implementation was informed by public protocol specifications and project documentation:
+
+- BitTorrent BEP 5 describes Kademlia DHT peer routing; BEP 11 describes peer exchange after a swarm has been joined.
+- libp2p documents Kademlia DHT, Identify, mDNS and opt-in rendezvous discovery as building blocks for decentralized peer identity and routing.
+- Chitchatter demonstrates a GPL-2.0 WebRTC chat architecture with direct media and optional TURN fallback.
+- aMule demonstrates eMule-compatible Kademlia and source exchange across desktop platforms.
+
+No Chitchatter, aMule, eMule or BitTorrent client source files have been copied into this repository. Their licenses and protocol compatibility obligations are materially different; this implementation uses public protocol concepts and the existing WebRTC stack rather than importing copyleft source without a project-wide license decision. No third-party peer list or scraped IP database is bundled.
