@@ -48,3 +48,12 @@ CI package generation is not physical-device evidence. No device test is marked 
 ## Publication gate
 
 A preview tag must not be created until the branch is merged to main, all platform jobs and audits pass, the lockfile is committed, Windows install/uninstall and GUI startup pass, physical two-device tests are recorded, security review is signed off, and the release signing decision is documented. Production release additionally requires successful signing/notarization and deployed HTTPS/WSS/TURN validation.
+## Additional source-review hardening (2026-10-30)
+
+- Added a bounded signaling rate-limit table (10,000 keys) with expiry cleanup; when full of active entries, new keys fail closed rather than growing memory without bound.
+- Added signaling admission limits of 1,000 concurrent WebSocket clients and 256 active rooms; room capacity remains 8 peers.
+- Added file-transfer idle expiry: 2 minutes for unanswered offers, 5 minutes without transfer progress, and 10 minutes retention for verified-but-unsaved files.
+- Added a 50 MiB aggregate cap covering both active incoming reservations and verified completed files; saving or expiry releases the completed-file memory reservation.
+- Added unit tests for rate-limit enforcement, expiry cleanup, bounded key count and invalid arguments.
+- These are source changes and automated test coverage; the new CI run must pass before acceptance. They do not replace live abuse, multi-device, NAT/TURN, or security testing.
+
