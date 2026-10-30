@@ -203,6 +203,28 @@ let directRemoteProfile = {nickname:"Peer",avatar:""};
 
 const outgoingFiles = new Map(), incomingFiles = new Map(), completedFiles = new Map();
 function fileStatus(message){ $("fileTransferStatus").textContent=message; }
+let completedBytes=0;
+const MAX_COMPLETED_FILE_BYTES=50*1024*1024;
+const INCOMING_OFFER_TIMEOUT_MS=2*60*1000;
+const INCOMING_TRANSFER_TIMEOUT_MS=5*60*1000;
+const COMPLETED_FILE_RETENTION_MS=10*60*1000;
+function armIncomingTimeout(id,state,timeoutMs){
+  clearTimeout(state.timeout);
+  state.timeout=setTimeout(()=>{
+    if(incomingFiles.get(id)!==state)return;
+    incomingFiles.delete(id);
+    state.row?.remove();
+    try{if(state.channel.readyState==="open")state.channel.send(JSON.stringify({type:"file-cancel",id}));}catch{}
+    fileStatus("An inactive incoming file transfer expired and its reserved memory was released.");
+  },timeoutMs);
+}
+function discardCompletedFile(id){
+  const item=completedFiles.get(id);if(!item)return;
+  clearTimeout(item.timeout);
+  completedFiles.delete(id);
+  completedBytes=Math.max(0,completedBytes-item.bytes.byteLength);
+  item.row?.remove();
+}
 function fileRow(container, title, detail) {
   const row=document.createElement("div");row.className="file-transfer-row";
   const info=document.createElement("div"),name=document.createElement("strong"),meta=document.createElement("span");
@@ -233,13 +255,13 @@ function attachFileChannel(channel,peerId,label){
   channel.addEventListener("open",refreshFileRecipients);channel.addEventListener("close",refreshFileRecipients);refreshFileRecipients();
 }
 function cleanupFileTransfersForChannel(channel){
-  for(const [id,state] of incomingFiles){if(state.channel===channel){state.row?.remove();incomingFiles.delete(id);}}
+  for(const [id,state] of incomingFiles){if(state.channel===channel){clearTimeout(state.timeout);state.row?.remove();incomingFiles.delete(id);}}
   for(const [id,state] of outgoingFiles){if(state.channel===channel){state.row.querySelector(".hint").textContent="Transfer interrupted: peer connection closed.";outgoingFiles.delete(id);}}
 }
 async function handleFileProtocol(message,channel,peerId,label){
   if(message.type==="file-offer"){
     const reservedBytes=[...incomingFiles.values()].reduce((sum,item)=>sum+item.offer.size,0);
-    if(!validateFileOffer(message.offer)||incomingFiles.has(message.offer.id)||incomingFiles.size>=4||reservedBytes+message.offer.size>50*1024*1024)return;
+    if(!validateFileOffer(message.offer)||incomingFiles.has(message.offer.id)||incomingFiles.size>=4||reservedBytes+completedBytes+message.offer.size>50*1024*1024)return;
     const state={offer:message.offer,chunks:new Array(message.offer.totalChunks),received:0,channel,peerId,label,accepted:false};
     incomingFiles.set(message.offer.id,state);
     const row=fileRow($("incomingFiles"),message.offer.name,label+" · "+(message.offer.size/1024/1024).toFixed(2)+" MB · waiting for approval");
@@ -247,8 +269,9 @@ async function handleFileProtocol(message,channel,peerId,label){
     const accept=document.createElement("button");accept.className="primary";accept.textContent="Accept";
     const reject=document.createElement("button");reject.className="secondary";reject.textContent="Reject";
     actions.append(accept,reject);row.append(actions);state.row=row;state.meta=row.querySelector(".hint");
-    accept.addEventListener("click",()=>{state.accepted=true;accept.disabled=true;reject.disabled=true;channel.send(JSON.stringify({type:"file-accept",id:message.offer.id}));state.meta.textContent="Receiving from "+label+" · 0%";fileStatus("Receiving "+message.offer.name);});
-    reject.addEventListener("click",()=>{channel.send(JSON.stringify({type:"file-reject",id:message.offer.id}));incomingFiles.delete(message.offer.id);row.remove();});
+    armIncomingTimeout(message.offer.id,state,INCOMING_OFFER_TIMEOUT_MS);
+    accept.addEventListener("click",()=>{state.accepted=true;accept.disabled=true;reject.disabled=true;armIncomingTimeout(message.offer.id,state,INCOMING_TRANSFER_TIMEOUT_MS);channel.send(JSON.stringify({type:"file-accept",id:message.offer.id}));state.meta.textContent="Receiving from "+label+" · 0%";fileStatus("Receiving "+message.offer.name);});
+    reject.addEventListener("click",()=>{clearTimeout(state.timeout);channel.send(JSON.stringify({type:"file-reject",id:message.offer.id}));incomingFiles.delete(message.offer.id);row.remove();});
     return;
   }
   if(message.type==="file-accept"){
@@ -268,18 +291,21 @@ async function handleFileProtocol(message,channel,peerId,label){
     const state=incomingFiles.get(message.id);if(!state?.accepted||state.channel!==channel)return;
     if(!Number.isSafeInteger(message.index)||message.index<0||message.index>=state.offer.totalChunks||state.chunks[message.index])return;
     const bytes=decodeBase64(message.data),expected=Math.min(FILE_CHUNK_BYTES,state.offer.size-message.index*FILE_CHUNK_BYTES);
-    if(bytes.length!==expected){channel.send(JSON.stringify({type:"file-cancel",id:message.id}));incomingFiles.delete(message.id);state.row.remove();return;}
-    state.chunks[message.index]=bytes;state.received+=bytes.length;
+    if(bytes.length!==expected){clearTimeout(state.timeout);channel.send(JSON.stringify({type:"file-cancel",id:message.id}));incomingFiles.delete(message.id);state.row.remove();return;}
+    state.chunks[message.index]=bytes;state.received+=bytes.length;armIncomingTimeout(message.id,state,INCOMING_TRANSFER_TIMEOUT_MS);
     state.meta.textContent="Receiving from "+label+" · "+Math.floor(state.received/state.offer.size*100)+"%";
     return;
   }
   if(message.type==="file-complete"){
     const state=incomingFiles.get(message.id);if(!state?.accepted||state.channel!==channel)return;
     let bytes;
-    try{bytes=assembleFileChunks(state.chunks,state.offer.size);}catch(error){fileStatus("File incomplete; refusing to save.");try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}incomingFiles.delete(message.id);state.row.remove();return;}
+    try{bytes=assembleFileChunks(state.chunks,state.offer.size);}catch(error){clearTimeout(state.timeout);fileStatus("File incomplete; refusing to save.");try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}incomingFiles.delete(message.id);state.row.remove();return;}
     const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),v=>v.toString(16).padStart(2,"0")).join("");
-    if(digest!==state.offer.sha256){fileStatus("File integrity check failed; file discarded.");try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}incomingFiles.delete(message.id);state.row.remove();return;}
-    incomingFiles.delete(message.id);completedFiles.set(message.id,{offer:state.offer,bytes});
+    if(digest!==state.offer.sha256){clearTimeout(state.timeout);fileStatus("File integrity check failed; file discarded.");try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}incomingFiles.delete(message.id);state.row.remove();return;}
+    clearTimeout(state.timeout);
+    if(completedBytes+bytes.byteLength>MAX_COMPLETED_FILE_BYTES){fileStatus("Completed-file memory limit reached; refusing additional file.");try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}incomingFiles.delete(message.id);state.row.remove();return;}
+    incomingFiles.delete(message.id);completedBytes+=bytes.byteLength;const completed={offer:state.offer,bytes,row:state.row,timeout:null};completedFiles.set(message.id,completed);
+    completed.timeout=setTimeout(()=>discardCompletedFile(message.id),COMPLETED_FILE_RETENTION_MS);
     channel.send(JSON.stringify({type:"file-received",id:message.id}));
     state.meta.textContent="Received and SHA-256 verified. Choose where to save.";
     const save=document.createElement("button");save.className="primary";save.textContent="Save as…";state.row.append(save);
@@ -287,7 +313,7 @@ async function handleFileProtocol(message,channel,peerId,label){
     fileStatus("Received "+state.offer.name+" · integrity verified.");return;
   }
   if(message.type==="file-cancel"){
-    const state=incomingFiles.get(message.id);if(state){state.row.remove();incomingFiles.delete(message.id);}
+    const state=incomingFiles.get(message.id);if(state){clearTimeout(state.timeout);state.row.remove();incomingFiles.delete(message.id);}
     const sent=outgoingFiles.get(message.id);if(sent){sent.row.querySelector(".hint").textContent="Transfer cancelled by recipient.";outgoingFiles.delete(message.id);}
   }
 }
@@ -329,7 +355,7 @@ async function saveReceivedFile(id){
     const url=URL.createObjectURL(new Blob([bytes],{type:offer.type||"application/octet-stream"}));
     const anchor=document.createElement("a");anchor.href=url;anchor.download=offer.name;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
   }
-  completedFiles.delete(id);fileStatus("Saved "+offer.name+".");
+  discardCompletedFile(id);fileStatus("Saved "+offer.name+".");
 }
 $("sendFileBtn").addEventListener("click",()=>startFileSend().catch(error=>fileStatus(error.message)));
 
