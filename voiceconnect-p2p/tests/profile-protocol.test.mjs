@@ -109,6 +109,12 @@ test("room profile metadata is synchronized and attached to chat", async () => {
     assert.equal(encryptedChat.message.text, "");
     assert.equal(encryptedChat.message.iv, "AAECAwQFBgcICQoL");
     assert.equal(encryptedChat.message.ciphertext, "Y2lwaGVydGV4dA==");
+
+    const aliceSawRevocation = waitForMessage(alice, m => m.type === "peer-profile" && m.peer.profileUpdated === true && m.peer.addressShared === false);
+    bob.send(JSON.stringify({ type: "profile", userGuid: "123e4567-e89b-42d3-a456-426614174001", nickname: "Bob", avatar: "data:image/webp;base64,d29ybGQ=", saveLocally: false, shareAddress: false }));
+    const revoked = await aliceSawRevocation;
+    assert.equal(revoked.peer.addressShared, false);
+    assert.equal(revoked.peer.observedIp, undefined);
   } finally {
     await closeSocket(alice);
     await closeSocket(bob);
