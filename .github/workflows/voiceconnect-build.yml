@@ -40,7 +40,9 @@ jobs:
           node-version: 24.22.1
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm libfuse2
-      - run: npm install
+      - name: Install from the committed lockfile when available
+        run: |
+          node -e "const fs=require('node:fs');const {spawnSync}=require('node:child_process');const cmd=fs.existsSync('package-lock.json')?'ci':'install';console.log('Running npm '+cmd);const r=spawnSync('npm',[cmd],{stdio:'inherit',shell:process.platform==='win32'});process.exit(r.status===null?1:r.status)"
       - name: Capture dependency-level npm audit report
         run: |
           node -e "const fs=require('node:fs');const {spawnSync}=require('node:child_process');const r=spawnSync('npm audit --json',{encoding:'utf8',shell:true});const raw=r.stdout||r.stderr||'{}';fs.writeFileSync('npm-audit-report.json',raw);let a;try{a=JSON.parse(raw)}catch(e){console.error('npm audit did not return valid JSON');process.exit(1)}const rows=Object.entries(a.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,isDirect:v.isDirect,range:v.range,fixAvailable:v.fixAvailable,via:(v.via||[]).map(x=>typeof x==='string'?x:{name:x.name,title:x.title,url:x.url,range:x.range})}));console.log(JSON.stringify({counts:a.metadata?.vulnerabilities,packages:rows},null,2));"
@@ -81,22 +83,29 @@ jobs:
         name: Launch packaged desktop and verify GUI startup
         shell: pwsh
         run: |
-          $exe = Join-Path $PWD "dist/win-unpacked/VoiceConnect P2P.exe"
-          if (!(Test-Path $exe)) { throw "Packaged desktop executable missing: $exe" }
-          $process = Start-Process -FilePath $exe -PassThru
-          try {
-            Start-Sleep -Seconds 12
-            $process.Refresh()
-            if ($process.HasExited) { throw "VoiceConnect exited during startup (exit code $($process.ExitCode))" }
-            $logs = Get-ChildItem "$env:APPDATA" -Filter startup.log -Recurse -ErrorAction SilentlyContinue
-            $log = $logs | Where-Object { (Get-Content $_.FullName -Raw) -match "VoiceConnect desktop startup completed" } | Select-Object -First 1
-            if (!$log) {
-              $found = ($logs | ForEach-Object { $_.FullName }) -join "; "
-              throw "Desktop startup completion was not logged. Logs found: $found"
+          $variants = @(
+            @{ Name = "base"; Exe = "dist/win-unpacked/VoiceConnect P2P.exe" },
+            @{ Name = "directx"; Exe = "dist/directx/win-unpacked/VoiceConnect P2P DirectX 11.exe" },
+            @{ Name = "opengl"; Exe = "dist/opengl/win-unpacked/VoiceConnect P2P OpenGL.exe" }
+          )
+          foreach ($variant in $variants) {
+            $exe = Join-Path $PWD $variant.Exe
+            if (!(Test-Path $exe)) { throw "$($variant.Name) packaged executable missing: $exe" }
+            $process = Start-Process -FilePath $exe -PassThru
+            try {
+              Start-Sleep -Seconds 12
+              $process.Refresh()
+              if ($process.HasExited) { throw "$($variant.Name) VoiceConnect exited during startup (exit code $($process.ExitCode))" }
+              $logs = Get-ChildItem "$env:APPDATA" -Filter startup.log -Recurse -ErrorAction SilentlyContinue
+              $log = $logs | Where-Object { (Get-Content $_.FullName -Raw) -match "VoiceConnect desktop startup completed" } | Select-Object -First 1
+              if (!$log) {
+                $found = ($logs | ForEach-Object { $_.FullName }) -join "; "
+                throw "$($variant.Name) desktop startup completion was not logged. Logs found: $found"
+              }
+              Write-Host "$($variant.Name) desktop process stayed alive and GUI startup completed. Log: $($log.FullName)"
+            } finally {
+              if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
             }
-            Write-Host "Desktop process stayed alive and GUI startup completed. Log: $($log.FullName)"
-          } finally {
-            if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
           }
       - if: always() && hashFiles('voiceconnect-p2p/npm-audit-report.json') != ''
         uses: actions/upload-artifact@v4
