@@ -89,7 +89,7 @@ function makePeerCard(id, data = {}) {
   const card = document.createElement("article"); card.className = "peer-card";
   const head = document.createElement("div"); head.className = "peer-head";
   const avatar = document.createElement("img"); avatar.className = "peer-avatar"; avatar.alt = ""; avatar.src = data.avatar || "avatar.svg";
-  const label = document.createElement("div"); label.className = "peer-label"; label.textContent = (data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8);
+  const label = document.createElement("div"); label.className = "peer-label"; label.textContent = (data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : "");
   head.append(avatar,label);
   const video = document.createElement("video"); video.autoplay = true; video.playsInline = true;
   const remember=document.createElement("button"); remember.type="button"; remember.className="secondary"; remember.textContent="Remember peer"; remember.disabled=!data.addressShared; remember.addEventListener("click",()=>rememberPeer(id).catch(error=>status(error.message)));\n  card.append(head,video,remember); peersNode.append(card);
@@ -97,7 +97,7 @@ function makePeerCard(id, data = {}) {
 }
 function updatePeerCard(id, data) {
   peerProfiles.set(id,data);
-  const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8); item.avatar.src=data.avatar || "avatar.svg"; item.remember.disabled=!data.addressShared; }
+  const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : ""); item.avatar.src=data.avatar || "avatar.svg"; item.remember.disabled=!data.addressShared; }
 }
 async function createPeer(id, initiator, data = {}) {
   if(peerConnections.has(id)) return peerConnections.get(id).pc;
@@ -338,7 +338,7 @@ muteBtn.addEventListener("click",()=>{muted=!muted;localStream?.getAudioTracks()
 cameraBtn.addEventListener("click",()=>{cameraOff=!cameraOff;localStream?.getVideoTracks().forEach(t=>t.enabled=!cameraOff);cameraBtn.textContent=cameraOff?"Turn camera on":"Turn camera off";});
 $("saveProfileBtn").addEventListener("click",()=>{sendProfile();sendDirectProfile();$("profileStatus").textContent="Profile updated. Your IP is shared only if you explicitly enabled address sharing.";});
 $("shareAddress").addEventListener("change",()=>{const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:p.avatar,savePeer:p.saveLocally,shareAddress:p.shareAddress}));if(roomName)sendProfile();});
-$("nickname").addEventListener("change",()=>{const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:p.avatar,savePeer:p.saveLocally}));if(roomName)sendProfile();sendDirectProfile();});
+$("nickname").addEventListener("change",()=>{const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:p.avatar,savePeer:p.saveLocally,shareAddress:p.shareAddress}));if(roomName)sendProfile();sendDirectProfile();});
 $("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.[0];if(!file)return;
   if(file.size>12*1024*1024)return status("Choose an image smaller than 12 MB");
   if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))return status("Choose PNG, JPEG, WebP or GIF");
@@ -351,11 +351,11 @@ $("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.
     while(avatarData.length>48000&&quality>0.32){quality-=0.08;avatarData=canvas.toDataURL("image/webp",quality);}
     if(avatarData.length>48000)throw new Error("Image is too detailed to share safely; choose a smaller image.");
     const preview=$("avatarPreview");if(preview){preview.src=avatarData;preview.hidden=false;}
-    const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:avatarData,savePeer:p.saveLocally}));
+    const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:avatarData,savePeer:p.saveLocally,shareAddress:p.shareAddress}));
     if(roomName)sendProfile();sendDirectProfile();status("Local avatar loaded and saved on this device",!!roomName);
   }catch(err){status("Could not read that image: "+err.message);}
 });
-$("clearAvatarBtn").addEventListener("click",()=>{avatarData="";$("avatarPreview").removeAttribute("src");$("avatarPreview").hidden=true;$("avatarFile").value="";const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:"",savePeer:p.saveLocally}));if(roomName)sendProfile();sendDirectProfile();});
+$("clearAvatarBtn").addEventListener("click",()=>{avatarData="";$("avatarPreview").removeAttribute("src");$("avatarPreview").hidden=true;$("avatarFile").value="";const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:"",savePeer:p.saveLocally,shareAddress:p.shareAddress}));if(roomName)sendProfile();sendDirectProfile();});
 $("applyNetworkBtn").addEventListener("click",async()=>{
   const url=$("turnUrl").value.trim(),username=$("turnUser").value.trim(),credential=$("turnPass").value;
   rtcConfig={iceServers:[...defaultIceServers,...(url?[{urls:url,username,credential}]:[])]};
