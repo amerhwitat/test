@@ -61,6 +61,16 @@ function renderKnownPeers() {
     row.append(label,remove); host.append(row);
   }
 }
+async function forgetKnownPeer(userGuid) {
+  if (!userGuid || !knownPeers.has(userGuid)) return;
+  if (window.voiceConnectDesktop?.forgetPeer) await window.voiceConnectDesktop.forgetPeer(userGuid);
+  else {
+    const list=JSON.parse(localStorage.getItem("vc-known-peers")||"[]").filter(peer=>peer.userGuid!==userGuid);
+    localStorage.setItem("vc-known-peers",JSON.stringify(list));
+  }
+  knownPeers.delete(userGuid);
+  renderKnownPeers();
+}
 async function loadKnownPeers() {
   try {
     const list=window.voiceConnectDesktop?.listKnownPeers ? await window.voiceConnectDesktop.listKnownPeers() : JSON.parse(localStorage.getItem("vc-known-peers")||"[]");
@@ -97,6 +107,9 @@ function makePeerCard(id, data = {}) {
 }
 function updatePeerCard(id, data) {
   peerProfiles.set(id,data);
+  if (data.profileUpdated && data.addressShared === false && data.userGuid) {
+    forgetKnownPeer(data.userGuid).catch(error => console.warn("Could not apply peer address-sharing revocation", error));
+  }
   const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : ""); item.avatar.src=data.avatar || "avatar.svg"; item.remember.disabled=!data.addressShared; }
 }
 async function createPeer(id, initiator, data = {}) {
