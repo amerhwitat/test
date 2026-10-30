@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "VoiceConnect P2P",
+  "version": "0.1.0",
+  "description": "Open VoiceConnect meetings and invitations from Chrome or Microsoft Edge.",
+  "permissions": [
+    "storage"
+  ],
+  "action": {
+    "default_title": "VoiceConnect P2P",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
