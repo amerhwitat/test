@@ -47,7 +47,9 @@
         "AppImage",
         "deb"
       ],
-      "category": "Network;InstantMessaging;"
+      "category": "Network;InstantMessaging;",
+      "maintainer": "VoiceConnect Project",
+      "vendor": "VoiceConnect Project"
     },
     "mac": {
       "target": [
@@ -56,5 +58,7 @@
       ],
       "category": "public.app-category.social-networking"
     }
-  }
+  },
+  "homepage": "https://github.com/amerhwitat/test/tree/main/voiceconnect-p2p",
+  "author": "VoiceConnect Project"
 }
