@@ -41,7 +41,9 @@
         "nsis",
         "msi",
         "portable"
-      ]
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
     },
     "linux": {
       "target": [
