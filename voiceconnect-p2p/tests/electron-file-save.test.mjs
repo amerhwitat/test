@@ -15,7 +15,7 @@ const {
 
 test("received filenames cannot escape paths or use Windows device names", () => {
   const safe = sanitizeReceivedFilename("../../folder\\\\evil?.txt");
-  assert.doesNotMatch(safe, /[\\\\/]/);
+  assert.ok(!safe.includes("/") && !safe.includes(String.fromCharCode(92)));
   assert.ok(!safe.startsWith(".") && !safe.includes("?"));
   assert.equal(sanitizeReceivedFilename("CON"), "_CON");
   assert.equal(sanitizeReceivedFilename("trailing. "), "trailing");
