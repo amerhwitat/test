@@ -5,6 +5,9 @@ const localVideo = $("localVideo"), peersNode = $("peers"), shareScreenBtn = $("
 const peerConnections = new Map(), peerProfiles = new Map(), pendingCandidates = new Map();
 let socket = null, myId = null, roomName = null, localStream = null, screenStream = null, avatarData = "";
 const savedProfile = JSON.parse(localStorage.getItem("vc-profile") || "{}");
+const inviteParams = new URLSearchParams(location.search);
+if (inviteParams.get("room")) $("room").value = inviteParams.get("room");
+if (inviteParams.get("invite")) $("inviteToken").value = inviteParams.get("invite");
 const userGuid = savedProfile.userGuid || crypto.randomUUID();
 localStorage.setItem("vc-profile", JSON.stringify({...savedProfile, userGuid}));
 let muted = false, cameraOff = false;
@@ -89,7 +92,7 @@ async function connectSignaling(){
   };
   socket.onerror=()=>{clearTimeout(timeout);reject(new Error("Could not connect to signaling service"));};
   socket.onclose=()=>{if(roomName)cleanupRoom();};
-  socket.onopen=()=>send({type:"join",room:roomInput.value.trim()});
+  socket.onopen=()=>send({type:"join",room:roomInput.value.trim(),inviteToken:$("inviteToken").value.trim()});
 });}
 async function startMedia(){
   if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera/microphone requires HTTPS or localhost.");
