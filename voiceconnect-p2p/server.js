@@ -16,6 +16,8 @@ const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || "").split(",").ma
 const rateBuckets = new Map();
 const production = process.env.NODE_ENV === "production";
 if (production && authSecret.length < 32) throw new Error("Production requires VOICECONNECT_AUTH_SECRET (32+ chars).");
+if (production && allowedOrigins.size === 0) throw new Error("Production requires ALLOWED_ORIGINS.");
+if (production && (!process.env.TURN_URL || !process.env.TURN_SHARED_SECRET)) throw new Error("Production requires TURN_URL and TURN_SHARED_SECRET.");
 function rateAllowed(key, limit = 30, windowMs = 60000) {
   const now = Date.now(), bucket = rateBuckets.get(key);
   if (!bucket || now - bucket.start >= windowMs) { rateBuckets.set(key, { start: now, count: 1 }); return true; }
@@ -63,7 +65,7 @@ function observedIp(req) {
 const server = http.createServer(async (req, res) => {
   try {
     const origin = req.headers.origin;
-    if (origin && allowedOrigins.size && !allowedOrigins.has(origin)) { res.writeHead(403); res.end("Origin not allowed"); return; }
+    if (production && (!origin || !allowedOrigins.has(origin))) { res.writeHead(403); res.end("Origin not allowed"); return; }
     const clientIp = observedIp(req);
     if (!rateAllowed("http:" + clientIp, 120)) { res.writeHead(429, { "Retry-After": "60" }); res.end("Rate limit exceeded"); return; }
     const requestUrl = new URL(req.url, "http://localhost");
@@ -84,7 +86,7 @@ const server = http.createServer(async (req, res) => {
       const iceServers = [{ urls: process.env.STUN_URL || "stun:stun.l.google.com:19302" }];
       if (turnUrl && turnSecret) {
         const expiry = Math.floor(Date.now() / 1000) + 3600;
-        const username = `${expiry}:${crypto.randomUUID()}`;
+        const username = `${expiry}:${randomUUID()}`;
         const credential = createHmac("sha1", turnSecret).update(username).digest("base64");
         iceServers.push({ urls: turnUrl.split(",").map(value => value.trim()), username, credential });
       }
@@ -107,7 +109,7 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
 server.on("upgrade", (req, socket, head) => {
   const origin = req.headers.origin, ip = observedIp(req);
-  if ((origin && allowedOrigins.size && !allowedOrigins.has(origin)) || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 403 Forbidden\\r\\n\\r\\n"); socket.destroy(); return; }
+  if ((production && (!origin || !allowedOrigins.has(origin))) || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 403 Forbidden\\r\\n\\r\\n"); socket.destroy(); return; }
   if (new URL(req.url, "http://localhost").pathname !== "/signal") { socket.destroy(); return; }
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
 });
@@ -135,6 +137,7 @@ wss.on("connection", (ws, req) => {
     if (msg.type === "join") {
       const roomName = String(msg.room || "").trim().slice(0, 64);
       if (!/^[a-zA-Z0-9_-]{3,64}$/.test(roomName)) return send(ws, { type: "error", message: "Room must be 3–64 letters, numbers, _ or -" });
+      if (!rateAllowed("join:" + ws.ip, 10, 60000)) return send(ws, { type: "error", message: "Too many join attempts" });
       if (!verifyInvite(msg.inviteToken, roomName)) return send(ws, { type: "error", message: "A valid, unexpired room invitation is required" });
       leave(ws);
       const room = rooms.get(roomName) || new Map();
