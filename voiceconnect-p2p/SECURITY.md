@@ -43,3 +43,7 @@ Do not publish exploit details or sensitive user data in public issues. Use GitH
 ## Review status
 
 This document is a security review checklist and threat-model summary, not an attestation that a third-party audit has occurred. No independent penetration test, formal cryptographic audit, malware scanning integration, or production acceptance sign-off is claimed.
+## Additional resource-exhaustion controls
+
+The signaling service now bounds rate-limit state to 10,000 keys, prunes expired buckets, rejects new keys when the active table is full, and caps active WebSocket clients (1,000), rooms (256), and room membership (8). File-transfer receivers expire unanswered offers after 2 minutes, abort inactive transfers after 5 minutes, retain verified-but-unsaved payloads for at most 10 minutes, and cap active plus completed incoming file memory at 50 MiB. These controls reduce resource-exhaustion exposure but require CI and adversarial integration testing; they are not a denial-of-service certification.
+
