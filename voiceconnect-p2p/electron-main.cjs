@@ -2,15 +2,67 @@ const { app, BrowserWindow, dialog, session, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
+const net = require("node:net");
 
 let localServer;
 let mainWindow;
 let startupLog;
 const mediaConsents = new Map();
+
+function trustedRenderer(event) {
+  try { return new URL(event.senderFrame.url).hostname === "127.0.0.1"; }
+  catch { return false; }
+}
+function knownPeersPath() {
+  return path.join(app.getPath("userData"), "data", "known-peers.json");
+}
+function readKnownPeers() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(knownPeersPath(), "utf8"));
+    return parsed?.version === 1 && Array.isArray(parsed.peers) ? parsed.peers : [];
+  } catch { return []; }
+}
+function writeKnownPeers(peers) {
+  const target = knownPeersPath();
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const temp = target + ".tmp";
+  fs.writeFileSync(temp, JSON.stringify({ version: 1, peers: peers.slice(0, 500) }, null, 2), { mode: 0o600 });
+  fs.renameSync(temp, target);
+}
+ipcMain.handle("voiceconnect:list-known-peers", (event) => {
+  if (!trustedRenderer(event)) return [];
+  return readKnownPeers();
+});
+ipcMain.handle("voiceconnect:remember-peer", (event, input) => {
+  if (!trustedRenderer(event) || !input || typeof input !== "object") return { ok: false, error: "Untrusted request" };
+  const peerId = String(input.peerId || "").slice(0, 80);
+  const userGuid = String(input.userGuid || "").slice(0, 80);
+  const nickname = String(input.nickname || "Peer").replace(/[<>\\u0000-\\u001f]/g, "").slice(0, 32);
+  const observedIp = String(input.observedIp || "");
+  if (!peerId || !userGuid || !net.isIP(observedIp)) return { ok: false, error: "A peer ID and explicitly shared valid IP address are required" };
+  const now = new Date().toISOString();
+  const peers = readKnownPeers();
+  const old = peers.find(peer => peer.userGuid === userGuid);
+  const record = {
+    peerId, userGuid, nickname, observedIp,
+    avatar: typeof input.avatar === "string" && input.avatar.length <= 50000 ? input.avatar : "",
+    room: String(input.room || "").slice(0, 64),
+    firstSeen: old?.firstSeen || now, lastSeen: now,
+    source: "peer-consented-room-exchange"
+  };
+  writeKnownPeers([record, ...peers.filter(peer => peer.userGuid !== userGuid)]);
+  return { ok: true, count: Math.min(peers.length + (old ? 0 : 1), 500) };
+});
+ipcMain.handle("voiceconnect:forget-peer", (event, userGuid) => {
+  if (!trustedRenderer(event)) return false;
+  writeKnownPeers(readKnownPeers().filter(peer => peer.userGuid !== String(userGuid)));
+  return true;
+});
+
 ipcMain.handle("voiceconnect:consent-media", (event, kind) => {
   if (!["camera", "microphone"].includes(kind)) return false;
   try {
-    if (new URL(event.senderFrame.url).hostname !== "127.0.0.1") return false;
+    if (!trustedRenderer(event)) return false;
   } catch { return false; }
   mediaConsents.set(event.sender.id, new Set([...(mediaConsents.get(event.sender.id) || []), kind]));
   return true;
