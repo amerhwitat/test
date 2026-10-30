@@ -20,7 +20,7 @@ export function decodeBase64(value) {
 
 export function validateFileOffer(offer) {
   return Boolean(offer && typeof offer.id === "string" && /^[a-f0-9-]{36}$/i.test(offer.id) &&
-    typeof offer.name === "string" && offer.name.length > 0 && offer.name.length <= 255 && !/[\\/\\u0000-\\u001f]/.test(offer.name) &&
+    typeof offer.name === "string" && offer.name.length > 0 && offer.name.length <= 255 && !offer.name.includes("/") && !offer.name.includes("\\") && !/[\x00-\x1f]/.test(offer.name) &&
     Number.isSafeInteger(offer.size) && offer.size >= 0 && offer.size <= MAX_FILE_BYTES &&
     typeof offer.type === "string" && offer.type.length <= 128 &&
     Number.isSafeInteger(offer.totalChunks) && offer.totalChunks === Math.ceil(offer.size / FILE_CHUNK_BYTES) &&
