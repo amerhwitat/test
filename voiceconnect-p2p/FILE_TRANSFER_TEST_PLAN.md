@@ -49,3 +49,12 @@ The File System Access API is secure-context gated and picker methods require us
 ## Evidence and release gate
 
 Attach test logs and hashes (not file contents) to the release evidence. A case is **not passed** merely because code exists or CI is queued. Production file-transfer acceptance requires all cases above to pass on actual devices, plus a security review and a documented malware-handling policy.
+## Resource-limit and timeout checks
+
+1. Leave an incoming offer unanswered; confirm it expires after 2 minutes and releases its reservation.
+2. Accept a transfer, stop sending chunks, and confirm it expires after 5 minutes without progress.
+3. Complete files without saving them; verify the combined active and completed payload reservation cannot exceed 50 MiB.
+4. Leave a verified file unsaved; confirm it is discarded after 10 minutes and the reservation is released.
+5. Repeat transfers after expiry and after channel disconnect; verify memory reservations are reusable and no stale transfer can be resumed.
+6. Open more than 1,000 signaling sessions or 256 rooms in a controlled load test; verify new sessions/rooms are rejected without unbounded rate-limit state growth.
+
