@@ -5,7 +5,16 @@ const { pathToFileURL } = require("node:url");
 
 let localServer;
 let mainWindow;
-let startupLog;\nconst mediaConsents = new Map();\nipcMain.handle("voiceconnect:consent-media", (event, kind) => {\n  if (!["camera", "microphone"].includes(kind)) return false;\n  mediaConsents.set(event.sender.id, new Set([...(mediaConsents.get(event.sender.id) || []), kind]));\n  return true;\n});
+let startupLog;
+const mediaConsents = new Map();
+ipcMain.handle("voiceconnect:consent-media", (event, kind) => {
+  if (!["camera", "microphone"].includes(kind)) return false;
+  try {
+    if (new URL(event.senderFrame.url).hostname !== "127.0.0.1") return false;
+  } catch { return false; }
+  mediaConsents.set(event.sender.id, new Set([...(mediaConsents.get(event.sender.id) || []), kind]));
+  return true;
+});
 
 function log(message, error) {
   const detail = error ? `\n${error.stack || error.message || String(error)}` : "";
