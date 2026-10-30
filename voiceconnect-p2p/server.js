@@ -1,6 +1,6 @@
 import http from "node:http";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { extname, join, normalize, dirname } from "node:path";
+import { extname, join, normalize, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
 
@@ -100,7 +100,7 @@ wss.on("connection", (ws, req) => {
       for (const peer of rooms.get(ws.room)?.values() || []) if (peer !== ws) send(peer, { type: "peer-profile", peer: profileFor(ws) });
       return;
     }
-    if (msg.type === "signal" && ws.room) {
+    if (msg.type === "chat" && ws.room) {\n      const text = typeof msg.text === "string" ? msg.text.normalize("NFC").slice(0, 4000) : "";\n      if (!text.trim()) return;\n      const packet = { type: "chat", message: { id: crypto.randomUUID(), peerId: ws.id, nickname: ws.profile.nickname, text, timestamp: new Date().toISOString() } };\n      for (const peer of rooms.get(ws.room)?.values() || []) send(peer, packet);\n      return;\n    }\n    if (msg.type === "signal" && ws.room) {
       const target = rooms.get(ws.room)?.get(String(msg.to || ""));
       if (!target) return send(ws, { type: "error", message: "Peer is no longer in this room" });
       const payload = JSON.stringify(msg.payload ?? {});
