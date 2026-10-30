@@ -120,3 +120,25 @@ The built-in mesh is suitable only for small rooms. For larger meetings, add a s
 When `VOICECONNECT_AUTH_SECRET` is configured, joining a room requires a signed, room-scoped, unexpired invitation token. Generate one server-side with `POST /api/invitations`, JSON body `{"room":"team-room","ttlSeconds":3600}`, and an admin bearer token in `VOICECONNECT_ADMIN_SECRET`. Tokens use HMAC-SHA256, are scoped to one room and expire within at most 24 hours. The signing secret is never returned. Production startup refuses to run without a 32-character `VOICECONNECT_AUTH_SECRET`. Set `ALLOWED_ORIGINS` to exact comma-separated browser origins. HTTP, WebSocket upgrade, chat and signaling have basic in-memory rate limits.
 
 This is an initial invitation gate, not a full account system: no OIDC login, user database, invitation revocation, durable session management or distributed rate limiter exists yet. Public deployment still needs HTTPS/WSS termination, strict proxy configuration, managed identity, shared rate-limit infrastructure and security review. Keep admin and signing secrets in deployment secret storage; never put them in the client bundle.
+
+
+## Self-hosted production signaling + TURN deployment
+
+A Docker Compose deployment skeleton is provided:
+- `Dockerfile`: non-root Node service with a health check.
+- `docker-compose.production.yml`: isolated signaling, Caddy HTTPS reverse proxy and coturn services.
+- `Caddyfile`: automatic HTTPS for the configured public domain and secure response headers.
+- `.env.production.example`: required secrets, public domain, TURN realm and public IPv4.
+- `deploy-production.sh`: validates required configuration and starts the stack.
+
+Deployment (Linux host with Docker Compose v2 and a public DNS name):
+1. Copy `.env.production.example` to `.env.production`.
+2. Set `DOMAIN`, `ACME_EMAIL`, `ALLOWED_ORIGINS`, `TURN_REALM`, `TURN_EXTERNAL_IP`, `TURN_URL`, and three independent random secrets. Generate secrets with `openssl rand -hex 32`.
+3. Point the domain A/AAAA records at the host. Open TCP 80/443, UDP 3478, TCP 3478 and UDP 49160–49200 in both cloud and host firewalls.
+4. Run `./deploy-production.sh`.
+5. Verify `https://DOMAIN/api/health` and `https://DOMAIN/api/ice-servers` from an external network. Confirm `turnConfigured: true`.
+6. Generate a room invitation with the admin API and join from a second device/network. Force relay-only ICE on both clients for a genuine TURN test (the current UI does not yet expose a relay-only toggle; use browser automation/devtools or the documented test harness).
+
+Important: this Compose template currently provisions coturn UDP/TCP on port 3478, not TURN/TLS on 443. TURN/TLS needs a certificate and listener configuration that are deliberately not advertised here. The stack is a deployment template; no live server, DNS name, credentials or firewall have been provisioned by this repository change. Do not expose it publicly until you have set real secrets and completed an external security review.
+
+The built-in health endpoint reports signaling process health and whether TURN is configured. It does not prove media relay works.
