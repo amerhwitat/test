@@ -65,3 +65,20 @@ The Electron wrapper starts the local signaling/static server and opens the UI. 
 ## License
 
 No DirectX SDK sample source is included. Add a project license before redistribution.
+
+
+## Local image avatars and duplicate nicknames
+
+Choose a PNG, JPEG, WebP or GIF image using the avatar picker. The image is decoded and resized locally to a maximum 512-pixel edge and WebP before being saved in this browser profile; it is not uploaded as a file to a third-party image host. When you join a room, the optimized avatar is sent to the room signaling service and other participants. The server bounds avatar payload size. Use a small image and remember that room participants can see it.
+
+Nicknames are display labels and are deliberately **not unique**. Each browser profile receives a persistent UUID/GUID stored locally. The server also assigns a unique connection peer ID for each session. Peer cards display the nickname plus the first eight characters of the user GUID, so two people may both be “Alex” without being confused. Registry records are updated by user GUID rather than nickname.
+
+## Build and run on Windows
+
+Install Node.js 20 LTS or newer, then double-click one of these files from File Explorer:
+
+- `build-windows.bat` — installs dependencies if needed, runs syntax checks, then creates the Windows NSIS installer and portable executable in `dist\\`.
+- `run-windows.bat` — starts the local signaling/web server for browser use.
+- `desktop-windows.bat` — launches the Electron desktop application.
+
+Or run them from Command Prompt. Build macOS packages on macOS and Linux packages on Linux using the npm scripts above; Windows batch files do not cross-compile those operating systems.
