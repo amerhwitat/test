@@ -1,4 +1,4 @@
-name: VoiceConnect cross-platform desktop builds
+name: VoiceConnect cross-platform validation
 on:
   pull_request:
     paths:
@@ -13,7 +13,7 @@ on:
 permissions:
   contents: read
 jobs:
-  package:
+  desktop:
     strategy:
       fail-fast: false
       matrix:
@@ -33,7 +33,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: voiceconnect-p2p/package-lock.json
       - run: npm install
+      - run: npm test
       - run: npm run ${{ matrix.script }}
+  native-clients:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m py_compile voiceconnect-p2p/clients/python/voiceconnect.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: javac -encoding UTF-8 voiceconnect-p2p/clients/java/VoiceConnectChat.java
+      - run: cmake -S voiceconnect-p2p/clients/cpp -B build/voiceconnect-cpp
+      - run: cmake --build build/voiceconnect-cpp
