@@ -1,5 +1,6 @@
 import { deriveChatKey, encryptChatPayload, decryptChatPayload } from "./chat-crypto.js";
 import { isValidPublicIp, buildInvitationLink } from "./invitation.js";
+import { MAX_FILE_BYTES, FILE_CHUNK_BYTES, encodeBase64, decodeBase64, validateFileOffer } from "./file-transfer.js";
 const $ = (id) => document.getElementById(id);
 const roomInput = $("room"), joinBtn = $("joinBtn"), leaveBtn = $("leaveBtn");
 const startMediaBtn = $("startMediaBtn"), muteBtn = $("muteBtn"), cameraBtn = $("cameraBtn");
@@ -197,6 +198,128 @@ async function handleSignal(from,payload){
 let directPeerConnection = null;
 let directDataChannel = null;
 let directRemoteProfile = {nickname:"Peer",avatar:""};
+
+const outgoingFiles = new Map(), incomingFiles = new Map(), completedFiles = new Map();
+function fileStatus(message){ $("fileTransferStatus").textContent=message; }
+function fileRow(container, title, detail) {
+  const row=document.createElement("div");row.className="file-transfer-row";
+  const info=document.createElement("div"),name=document.createElement("strong"),meta=document.createElement("span");
+  name.textContent=title;meta.className="hint";meta.textContent=detail;info.append(name,meta);row.append(info);
+  container.append(row);return row;
+}
+function connectedFileChannels(){
+  const list=[];
+  for(const [id,item] of peerConnections){const channel=item.fileChannel;if(channel?.readyState==="open")list.push({id,channel,label:peerProfiles.get(id)?.nickname||"Room peer"});}
+  if(directDataChannel?.readyState==="open")list.push({id:"direct",channel:directDataChannel,label:directRemoteProfile.nickname||"Direct peer"});
+  return list;
+}
+function refreshFileRecipients(){
+  const select=$("fileRecipient"),current=select.value,channels=connectedFileChannels();
+  select.replaceChildren();
+  const all=document.createElement("option");all.value="all";all.textContent="All connected room peers";select.append(all);
+  for(const peer of channels){const option=document.createElement("option");option.value=peer.id;option.textContent=peer.label+(peer.id==="direct"?" (direct)":"");select.append(option);}
+  if([...select.options].some(option=>option.value===current))select.value=current;
+  $("sendFileBtn").disabled=channels.length===0;
+}
+function attachFileChannel(channel,peerId,label){
+  channel.binaryType="arraybuffer";
+  channel.onmessage=async event=>{
+    try{if(typeof event.data!=="string")return;const message=JSON.parse(event.data);if(message.type?.startsWith("file-"))await handleFileProtocol(message,channel,peerId,label);}
+    catch(error){console.warn("File transfer message rejected",error);fileStatus("A file transfer message was invalid.");}
+  };
+  channel.addEventListener("open",refreshFileRecipients);channel.addEventListener("close",refreshFileRecipients);refreshFileRecipients();
+}
+async function handleFileProtocol(message,channel,peerId,label){
+  if(message.type==="file-offer"){
+    if(!validateFileOffer(message.offer)||incomingFiles.has(message.offer.id)||incomingFiles.size>=4)return;
+    const state={offer:message.offer,chunks:new Array(message.offer.totalChunks),received:0,channel,peerId,label,accepted:false};
+    incomingFiles.set(message.offer.id,state);
+    const row=fileRow($("incomingFiles"),message.offer.name,label+" · "+(message.offer.size/1024/1024).toFixed(2)+" MB · waiting for approval");
+    const actions=document.createElement("div");actions.className="actions";
+    const accept=document.createElement("button");accept.className="primary";accept.textContent="Accept";
+    const reject=document.createElement("button");reject.className="secondary";reject.textContent="Reject";
+    actions.append(accept,reject);row.append(actions);state.row=row;state.meta=row.querySelector(".hint");
+    accept.addEventListener("click",()=>{state.accepted=true;accept.disabled=true;reject.disabled=true;channel.send(JSON.stringify({type:"file-accept",id:message.offer.id}));state.meta.textContent="Receiving from "+label+" · 0%";fileStatus("Receiving "+message.offer.name);});
+    reject.addEventListener("click",()=>{channel.send(JSON.stringify({type:"file-reject",id:message.offer.id}));incomingFiles.delete(message.offer.id);row.remove();});
+    return;
+  }
+  if(message.type==="file-accept"){
+    const state=outgoingFiles.get(message.id);if(!state||state.channel!==channel)return;
+    state.accepted=true;sendFileChunks(message.id,state).catch(error=>{fileStatus("File transfer failed: "+error.message);try{channel.send(JSON.stringify({type:"file-cancel",id:message.id}));}catch{}});
+    return;
+  }
+  if(message.type==="file-reject"){
+    const state=outgoingFiles.get(message.id);if(state){state.row.querySelector(".hint").textContent="Recipient rejected the file.";outgoingFiles.delete(message.id);}
+    return;
+  }
+  if(message.type==="file-chunk"){
+    const state=incomingFiles.get(message.id);if(!state?.accepted||state.channel!==channel)return;
+    if(!Number.isSafeInteger(message.index)||message.index<0||message.index>=state.offer.totalChunks||state.chunks[message.index])return;
+    const bytes=decodeBase64(message.data),expected=Math.min(FILE_CHUNK_BYTES,state.offer.size-message.index*FILE_CHUNK_BYTES);
+    if(bytes.length!==expected){channel.send(JSON.stringify({type:"file-cancel",id:message.id}));incomingFiles.delete(message.id);state.row.remove();return;}
+    state.chunks[message.index]=bytes;state.received+=bytes.length;
+    state.meta.textContent="Receiving from "+label+" · "+Math.floor(state.received/state.offer.size*100)+"%";
+    return;
+  }
+  if(message.type==="file-complete"){
+    const state=incomingFiles.get(message.id);if(!state?.accepted||state.channel!==channel)return;
+    const bytes=new Uint8Array(state.offer.size);let offset=0;
+    for(const chunk of state.chunks){if(!chunk){fileStatus("File incomplete; refusing to save.");return;}bytes.set(chunk,offset);offset+=chunk.length;}
+    const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),v=>v.toString(16).padStart(2,"0")).join("");
+    if(digest!==state.offer.sha256){fileStatus("File integrity check failed; file discarded.");incomingFiles.delete(message.id);state.row.remove();return;}
+    incomingFiles.delete(message.id);completedFiles.set(message.id,{offer:state.offer,bytes});
+    state.meta.textContent="Received and SHA-256 verified. Choose where to save.";
+    const save=document.createElement("button");save.className="primary";save.textContent="Save as…";state.row.append(save);
+    save.addEventListener("click",()=>saveReceivedFile(message.id).catch(error=>fileStatus("Could not save file: "+error.message)));
+    fileStatus("Received "+state.offer.name+" · integrity verified.");return;
+  }
+  if(message.type==="file-cancel"){
+    const state=incomingFiles.get(message.id);if(state){state.row.remove();incomingFiles.delete(message.id);}
+    const sent=outgoingFiles.get(message.id);if(sent){sent.row.querySelector(".hint").textContent="Transfer cancelled by recipient.";outgoingFiles.delete(message.id);}
+  }
+}
+async function sendFileChunks(id,state){
+  const {file,channel,offer,row}=state;
+  for(let index=0;index<offer.totalChunks;index++){
+    if(channel.readyState!=="open"||!outgoingFiles.has(id))throw new Error("Connection closed or transfer cancelled");
+    while(channel.bufferedAmount>256*1024)await new Promise(resolve=>setTimeout(resolve,30));
+    const bytes=new Uint8Array(await file.slice(index*FILE_CHUNK_BYTES,Math.min(file.size,(index+1)*FILE_CHUNK_BYTES)).arrayBuffer());
+    channel.send(JSON.stringify({type:"file-chunk",id,index,data:encodeBase64(bytes)}));
+    row.querySelector(".hint").textContent="Sending to "+state.label+" · "+Math.floor((index+1)/offer.totalChunks*100)+"%";
+  }
+  channel.send(JSON.stringify({type:"file-complete",id}));row.querySelector(".hint").textContent="Sent to "+state.label+".";outgoingFiles.delete(id);
+}
+async function startFileSend(){
+  const file=$("filePicker").files?.[0];if(!file){fileStatus("Choose a file first.");return;}
+  if(file.size>MAX_FILE_BYTES){fileStatus("Files are limited to 25 MB.");return;}
+  const channels=connectedFileChannels().filter(peer=>$("fileRecipient").value==="all"?peer.id!=="direct":peer.id===$("fileRecipient").value);
+  if(!channels.length){fileStatus("No connected recipient is available.");return;}
+  const bytes=new Uint8Array(await file.arrayBuffer()),sha256=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),v=>v.toString(16).padStart(2,"0")).join("");
+  for(const peer of channels){
+    const id=crypto.randomUUID(),offer={id,name:file.name.replace(/[\\/\\\\]/g,"_").slice(0,255),size:file.size,type:file.type.slice(0,128),totalChunks:Math.ceil(file.size/FILE_CHUNK_BYTES),sha256};
+    const row=fileRow($("fileTransferProgress"),offer.name,"Waiting for "+peer.label+" to accept · "+(file.size/1024/1024).toFixed(2)+" MB");
+    outgoingFiles.set(id,{file,channel:peer.channel,offer,row,label:peer.label,accepted:false});
+    peer.channel.send(JSON.stringify({type:"file-offer",offer}));
+  }
+  fileStatus("File offer sent. Waiting for recipient approval.");
+}
+async function saveReceivedFile(id){
+  const item=completedFiles.get(id);if(!item)return;
+  const {offer,bytes}=item;
+  if(window.voiceConnectDesktop?.saveReceivedFile){
+    const data=encodeBase64(bytes),result=await window.voiceConnectDesktop.saveReceivedFile({name:offer.name,data});
+    if(result?.canceled)return;if(!result?.ok)throw new Error(result?.error||"Native save failed");
+  }else if(window.showSaveFilePicker){
+    const handle=await window.showSaveFilePicker({suggestedName:offer.name});
+    const writable=await handle.createWritable();await writable.write(new Blob([bytes],{type:offer.type||"application/octet-stream"}));await writable.close();
+  }else{
+    const url=URL.createObjectURL(new Blob([bytes],{type:offer.type||"application/octet-stream"}));
+    const anchor=document.createElement("a");anchor.href=url;anchor.download=offer.name;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }
+  completedFiles.delete(id);fileStatus("Saved "+offer.name+".");
+}
+$("sendFileBtn").addEventListener("click",()=>startFileSend().catch(error=>fileStatus(error.message)));
+
 function directStatus(message){ $("directStatus").textContent=message; }
 function sendDirectProfile(){
   if(directDataChannel?.readyState==="open"){
