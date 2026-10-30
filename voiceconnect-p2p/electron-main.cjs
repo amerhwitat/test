@@ -86,12 +86,16 @@ async function startDesktop() {
 
     // The app's own local UI is trusted. Keep camera/microphone permissions
     // scoped to that local origin; never grant permissions to remote origins.
-    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
       let trusted = false;
       try {
         trusted = new URL(webContents.getURL()).hostname === "127.0.0.1";
       } catch {}
-      const granted = mediaConsents.get(webContents.id) || new Set();\n      const requestedMedia = permission === "media" && granted.has("camera") && granted.has("microphone");\n      callback(trusted && (granted.size > 0 || permission === "display-capture"));
+      const granted = mediaConsents.get(webContents.id) || new Set();
+      const requestedTypes = Array.isArray(details?.mediaTypes) ? details.mediaTypes : [];
+      const mediaAllowed = permission === "media" && requestedTypes.length > 0 &&
+        requestedTypes.every(type => granted.has(type === "video" ? "camera" : type === "audio" ? "microphone" : ""));
+      callback(trusted && (mediaAllowed || permission === "display-capture"));
     });
 
     const dataDir = path.join(app.getPath("userData"), "data");
