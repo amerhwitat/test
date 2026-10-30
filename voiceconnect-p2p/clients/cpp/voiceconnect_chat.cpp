@@ -4,6 +4,7 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -46,11 +47,17 @@ static std::string base64(const std::vector<unsigned char>& in) {
 
 static std::string make_guid() {
   std::random_device rd;
-  std::mt19937_64 gen(rd());
+  std::array<unsigned char, 16> bytes{};
+  for (auto& byte : bytes) byte = static_cast<unsigned char>(rd());
+  // RFC 4122 version 4 UUID; the signaling service accepts this canonical form.
+  bytes[6] = static_cast<unsigned char>((bytes[6] & 0x0f) | 0x40);
+  bytes[8] = static_cast<unsigned char>((bytes[8] & 0x3f) | 0x80);
   std::ostringstream out;
   out << std::hex << std::setfill('0');
-  for (int i = 0; i < 4; ++i)
-    out << std::setw(8) << static_cast<unsigned>(gen());
+  for (std::size_t i = 0; i < bytes.size(); ++i) {
+    if (i == 4 || i == 6 || i == 8 || i == 10) out << '-';
+    out << std::setw(2) << static_cast<unsigned>(bytes[i]);
+  }
   return out.str();
 }
 
