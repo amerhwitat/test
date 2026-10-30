@@ -14,6 +14,7 @@ public final class VoiceConnectChat implements WebSocket.Listener {
   private final String avatar;
   private final String userGuid = UUID.randomUUID().toString();
   private WebSocket socket;
+  private final CompletableFuture<Void> profileReady = new CompletableFuture<>();
 
   VoiceConnectChat(String room, String nickname, String avatar) {
     this.room = room;
@@ -28,7 +29,10 @@ public final class VoiceConnectChat implements WebSocket.Listener {
         .thenCompose(ignored -> ws.sendText("{\"type\":\"profile\",\"userGuid\":\"" + userGuid
             + "\",\"nickname\":\"" + escape(nickname) + "\",\"avatar\":\""
             + avatar + "\",\"saveLocally\":false}", true))
-        .whenComplete((ignored, error) -> { if (error != null) onError(ws, error); });
+        .whenComplete((ignored, error) -> {
+          if (error != null) { onError(ws, error); profileReady.completeExceptionally(error); }
+          else profileReady.complete(null);
+        });
     System.out.println("Connected as " + nickname + ". Type messages; /quit exits.");
   }
 
@@ -69,6 +73,7 @@ public final class VoiceConnectChat implements WebSocket.Listener {
     var client = HttpClient.newHttpClient();
     var listener = new VoiceConnectChat(room, nickname, avatar);
     client.newWebSocketBuilder().buildAsync(URI.create(url), listener).join();
+    listener.profileReady.join();
     var in = new Scanner(System.in, StandardCharsets.UTF_8);
     while (in.hasNextLine()) {
       String line = in.nextLine();
