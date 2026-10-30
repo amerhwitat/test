@@ -9,9 +9,5 @@
   "action": {
     "default_title": "VoiceConnect P2P",
     "default_popup": "popup.html"
-  },
-  "icons": {
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
   }
 }
