@@ -40,7 +40,7 @@ async function closeSocket(socket) {
 
 test("room profile metadata is synchronized and attached to chat", async () => {
   const { server, port } = await startServer({ host: "127.0.0.1", port: 0 });
-  const url = \`ws://127.0.0.1:\${port}/signal\`;
+  const url = "ws://127.0.0.1:" + port + "/signal";
   let alice;
   let bob;
   try {
