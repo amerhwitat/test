@@ -51,7 +51,7 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({ server, path: "/signal", maxPayload: 256 * 1024 });
 function send(ws, message) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message)); }
 function profileFor(ws) {
-  return { peerId: ws.id, nickname: ws.profile?.nickname || "Guest", avatar: ws.profile?.avatar || "" };
+  return { peerId: ws.id, userGuid: ws.profile?.userGuid || ws.id, nickname: ws.profile?.nickname || "Guest", avatar: ws.profile?.avatar || "" };
 }
 function leave(ws) {
   const room = rooms.get(ws.room);
@@ -65,7 +65,7 @@ wss.on("connection", (ws, req) => {
   ws.id = crypto.randomUUID();
   ws.room = null;
   ws.ip = observedIp(req);
-  ws.profile = { nickname: "Guest", avatar: "" };
+  ws.profile = { userGuid: ws.id, nickname: "Guest", avatar: "" };
   send(ws, { type: "welcome", peerId: ws.id });
   ws.on("message", async (raw) => {
     let msg;
@@ -87,12 +87,13 @@ wss.on("connection", (ws, req) => {
     if (msg.type === "profile" && ws.room) {
       const nickname = String(msg.nickname || "Guest").trim().replace(/[<>\u0000-\u001f]/g, "").slice(0, 32) || "Guest";
       const avatar = typeof msg.avatar === "string" && (msg.avatar.length < 160000 && (/^https:\/\//i.test(msg.avatar) || /^data:image\/(png|jpeg|webp|gif);base64,/i.test(msg.avatar))) ? msg.avatar : "";
-      ws.profile = { nickname, avatar };
+      const suppliedGuid = typeof msg.userGuid === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(msg.userGuid) ? msg.userGuid.toLowerCase() : ws.id;
+      ws.profile = { userGuid: suppliedGuid, nickname, avatar };
       const consent = msg.saveLocally === true;
       if (consent) {
         const now = new Date().toISOString();
         const previous = registry.peers.find(p => p.peerId === ws.id);
-        const entry = { peerId: ws.id, nickname, avatar, observedIp: ws.ip, firstSeen: previous?.firstSeen || now, lastSeen: now };
+        const entry = { peerId: ws.id, userGuid: suppliedGuid, nickname, avatar, observedIp: ws.ip, firstSeen: previous?.firstSeen || now, lastSeen: now };
         registry.peers = [entry, ...registry.peers.filter(p => p.peerId !== ws.id)].slice(0, 500);
         try { await persistRegistry(); send(ws, { type: "profile-saved", saved: true }); }
         catch (err) { send(ws, { type: "error", message: "Could not save local peer registry: " + err.message }); }
@@ -100,7 +101,14 @@ wss.on("connection", (ws, req) => {
       for (const peer of rooms.get(ws.room)?.values() || []) if (peer !== ws) send(peer, { type: "peer-profile", peer: profileFor(ws) });
       return;
     }
-    if (msg.type === "chat" && ws.room) {\n      const text = typeof msg.text === "string" ? msg.text.normalize("NFC").slice(0, 4000) : "";\n      if (!text.trim()) return;\n      const packet = { type: "chat", message: { id: crypto.randomUUID(), peerId: ws.id, nickname: ws.profile.nickname, text, timestamp: new Date().toISOString() } };\n      for (const peer of rooms.get(ws.room)?.values() || []) send(peer, packet);\n      return;\n    }\n    if (msg.type === "signal" && ws.room) {
+    if (msg.type === "chat" && ws.room) {
+      const text = typeof msg.text === "string" ? msg.text.normalize("NFC").slice(0, 4000) : "";
+      if (!text.trim()) return;
+      const packet = { type: "chat", message: { id: crypto.randomUUID(), peerId: ws.id, userGuid: ws.profile.userGuid, nickname: ws.profile.nickname, text, timestamp: new Date().toISOString() } };
+      for (const peer of rooms.get(ws.room)?.values() || []) send(peer, packet);
+      return;
+    }
+    if (msg.type === "signal" && ws.room) {
       const target = rooms.get(ws.room)?.get(String(msg.to || ""));
       if (!target) return send(ws, { type: "error", message: "Peer is no longer in this room" });
       const payload = JSON.stringify(msg.payload ?? {});
@@ -112,4 +120,9 @@ wss.on("connection", (ws, req) => {
   ws.on("close", () => leave(ws));
   ws.on("error", () => leave(ws));
 });
-export function startServer() {\n  server.listen(port, process.env.HOST || "0.0.0.0", () => console.log(`VoiceConnect P2P listening on http://${process.env.HOST || "0.0.0.0"}:${port}; registry: ${registryPath}`));\n  return server;\n}\n\nif (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) startServer();
+export function startServer() {
+  server.listen(port, process.env.HOST || "0.0.0.0", () => console.log(`VoiceConnect P2P listening on http://${process.env.HOST || "0.0.0.0"}:${port}; registry: ${registryPath}`));
+  return server;
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) startServer();
