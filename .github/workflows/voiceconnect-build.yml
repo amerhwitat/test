@@ -134,6 +134,48 @@ jobs:
           path: voiceconnect-p2p/dist/opengl/*
           if-no-files-found: error
           retention-days: 30
+  infrastructure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOMAIN: meet.example.invalid
+      ACME_EMAIL: ci@example.invalid
+      ALLOWED_ORIGINS: https://meet.example.invalid
+      VOICECONNECT_AUTH_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      VOICECONNECT_ADMIN_SECRET: fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
+      TURN_REALM: meet.example.invalid
+      TURN_EXTERNAL_IP: 203.0.113.10
+      TURN_SHARED_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      TURN_URL: turn:meet.example.invalid:3478?transport=udp,turn:meet.example.invalid:3478?transport=tcp
+      STUN_URL: stun:meet.example.invalid:3478
+    defaults:
+      run:
+        working-directory: voiceconnect-p2p
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create disposable validation environment file
+        run: |
+          cat > .env.production <<'EOF'
+          DOMAIN=${DOMAIN}
+          ACME_EMAIL=${ACME_EMAIL}
+          ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+          VOICECONNECT_AUTH_SECRET=${VOICECONNECT_AUTH_SECRET}
+          VOICECONNECT_ADMIN_SECRET=${VOICECONNECT_ADMIN_SECRET}
+          TURN_REALM=${TURN_REALM}
+          TURN_EXTERNAL_IP=${TURN_EXTERNAL_IP}
+          TURN_SHARED_SECRET=${TURN_SHARED_SECRET}
+          TURN_URL=${TURN_URL}
+          STUN_URL=${STUN_URL}
+          PORT=8787
+          EOF
+      - name: Validate production Compose configuration
+        run: docker compose -f docker-compose.production.yml config --quiet
+      - name: Build production signaling container
+        run: docker compose -f docker-compose.production.yml build app
+      - name: Validate Caddy reverse-proxy configuration
+        run: |
+          docker run --rm -e DOMAIN -e ACME_EMAIL -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
   native-clients:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -189,7 +231,7 @@ jobs:
 
   publish-preview:
     if: startsWith(github.ref, 'refs/tags/voiceconnect-v')
-    needs: [desktop, native-clients, browser-extensions]
+    needs: [desktop, native-clients, browser-extensions, infrastructure]
     runs-on: ubuntu-latest
     permissions:
       contents: write
