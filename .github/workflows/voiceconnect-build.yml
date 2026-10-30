@@ -1,0 +1,39 @@
+name: VoiceConnect cross-platform desktop builds
+on:
+  pull_request:
+    paths:
+      - "voiceconnect-p2p/**"
+      - ".github/workflows/voiceconnect-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "voiceconnect-p2p/**"
+      - ".github/workflows/voiceconnect-build.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: build:win
+          - os: ubuntu-latest
+            script: build:linux
+          - os: macos-latest
+            script: build:mac
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: voiceconnect-p2p
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: voiceconnect-p2p/package-lock.json
+      - run: npm install
+      - run: npm run ${{ matrix.script }}
