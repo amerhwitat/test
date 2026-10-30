@@ -209,3 +209,25 @@ Screen sharing is a separate action. VoiceConnect first explains that desktop/wi
 These app-level consent prompts supplement, and do not replace, the browser/OS permission controls. Users can revoke camera/microphone permission in operating-system privacy settings or browser site settings at any time.
 
 Electron additionally validates the calling renderer's loopback origin and checks each requested media type against its separate consent before granting the corresponding permission. The renderer preload exposes only the narrow consent request method; Node integration remains disabled and context isolation remains enabled.
+
+
+## Fully self-contained, no-paid-infrastructure mode
+
+The Electron desktop application includes its own loopback UI/signaling process. It does not require a Hetzner account, cloud server, domain, DNS, API token, billing authorization, Docker host, or production secrets to launch. The embedded service is used only to serve the local desktop UI and to support the optional multi-participant room mode on that same service.
+
+For a direct two-person call, use **Direct peer connection** instead of **Join a live meeting**:
+
+1. Both participants open the desktop application. No account or hosted room is required.
+2. Each participant enables the camera and/or microphone they choose to share. The app asks for explicit permission.
+3. The caller selects **Create offer (caller)** and sends the generated connection text privately to the other participant.
+4. The receiver pastes the offer and selects **Create answer (receiver)**, then sends the generated answer privately back.
+5. The caller pastes the answer and selects **Apply answer (caller)**. When ICE succeeds, audio/video and chat use a direct WebRTC connection; chat travels over a WebRTC data channel.
+6. Screen sharing is separately consented and uses the selected display/window capture source.
+
+The offer and answer include gathered ICE candidates and must be exchanged as complete text. Keep the application open during exchange. Treat these blobs as private connection metadata: exchange them only with the intended participant and do not post them publicly. This direct mode is currently a two-peer/manual-signaling workflow; it does not provide automatic peer discovery, multi-party rooms, or a persistent public directory.
+
+**Network limits:** direct mode uses the default public STUN service to attempt NAT discovery. STUN is not a media relay. No paid infrastructure or TURN account is required, but symmetric NAT, carrier-grade NAT, strict corporate firewalls, blocked UDP, and some VPN configurations can prevent a direct path. In those cases a TURN relay is required; without a TURN server, the application cannot guarantee connectivity on every network. A fully serverless design cannot guarantee traversal of restrictive NATs because some network pairs require a relay. Media is peer-to-peer when a direct route is established.
+
+The standard shared-room mode remains optional and uses a signaling service for automatic discovery and room chat. It can be self-hosted on an existing computer/server without Hetzner, but remote peers need a reachable signaling endpoint. The desktop direct mode avoids that dependency for two participants. Static web hosting is still needed if you choose to distribute/run the browser version from a website; the installed desktop packages do not depend on public web hosting for their local UI.
+
+The Hetzner Terraform, Docker Compose, Caddy and coturn files are optional deployment examples only. They are not required by the desktop app or direct connection workflow and are never automatically provisioned. No cloud resources are created and no billing is initiated by using direct mode.
