@@ -528,7 +528,12 @@ async function startScreenShare() {
     const granted=await window.voiceConnectDesktop.requestMediaConsent("screen");
     if(!granted)throw new Error("Desktop sharing permission was not granted by the application.");
   }
-  screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: true });
+  try {
+    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: true });
+  } catch (error) {
+    if(window.voiceConnectDesktop?.revokeMediaConsent)await window.voiceConnectDesktop.revokeMediaConsent("screen");
+    throw error;
+  }
   const track = screenStream.getVideoTracks()[0];
   $("localScreenPreview").srcObject = screenStream;
   $("localScreenPreview").hidden = false;
