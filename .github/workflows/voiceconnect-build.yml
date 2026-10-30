@@ -40,6 +40,27 @@ jobs:
       - run: node generate-icon.mjs
       - run: npm test
       - run: npm run ${{ matrix.script }}
+      - if: runner.os == 'Windows'
+        name: Launch packaged desktop and verify GUI startup
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD "dist/win-unpacked/VoiceConnect P2P.exe"
+          if (!(Test-Path $exe)) { throw "Packaged desktop executable missing: $exe" }
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            Start-Sleep -Seconds 12
+            $process.Refresh()
+            if ($process.HasExited) { throw "VoiceConnect exited during startup (exit code $($process.ExitCode))" }
+            $logs = Get-ChildItem "$env:APPDATA" -Filter startup.log -Recurse -ErrorAction SilentlyContinue
+            $log = $logs | Where-Object { (Get-Content $_.FullName -Raw) -match "VoiceConnect desktop startup completed" } | Select-Object -First 1
+            if (!$log) {
+              $found = ($logs | ForEach-Object { $_.FullName }) -join "; "
+              throw "Desktop startup completion was not logged. Logs found: $found"
+            }
+            Write-Host "Desktop process stayed alive and GUI startup completed. Log: $($log.FullName)"
+          } finally {
+            if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: voiceconnect-${{ matrix.os }}-desktop
