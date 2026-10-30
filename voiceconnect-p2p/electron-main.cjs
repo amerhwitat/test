@@ -71,6 +71,19 @@ ipcMain.handle("voiceconnect:forget-peer", (event, userGuid) => {
   return true;
 });
 
+ipcMain.handle("voiceconnect:save-received-file", async (event, input) => {
+  if (!trustedRenderer(event) || !input || typeof input !== "object") return { ok: false, error: "Untrusted request" };
+  const name = String(input.name || "received-file").replace(/[\\/<>:"|?*\\u0000-\\u001f]/g, "_").slice(0, 180) || "received-file";
+  const encoded = input.data;
+  if (typeof encoded !== "string" || encoded.length > 36 * 1024 * 1024) return { ok: false, error: "File exceeds the 25 MB transfer limit" };
+  const data = Buffer.from(encoded, "base64");
+  if (data.length > 25 * 1024 * 1024 || data.toString("base64") !== encoded) return { ok: false, error: "Invalid file data or size" };
+  const result = await dialog.showSaveDialog(mainWindow, { title: "Save received file", defaultPath: name, buttonLabel: "Save file" });
+  if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+  fs.writeFileSync(result.filePath, data, { flag: "wx" });
+  return { ok: true, filePath: result.filePath };
+});
+
 ipcMain.handle("voiceconnect:consent-media", (event, kind) => {
   if (!["camera", "microphone"].includes(kind)) return false;
   try {
