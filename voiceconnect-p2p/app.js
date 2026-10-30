@@ -1,9 +1,9 @@
 const $ = (id) => document.getElementById(id);
 const roomInput = $("room"), joinBtn = $("joinBtn"), leaveBtn = $("leaveBtn");
 const startMediaBtn = $("startMediaBtn"), muteBtn = $("muteBtn"), cameraBtn = $("cameraBtn");
-const localVideo = $("localVideo"), peersNode = $("peers");
+const localVideo = $("localVideo"), peersNode = $("peers"), shareScreenBtn = $("shareScreenBtn");
 const peerConnections = new Map(), peerProfiles = new Map(), pendingCandidates = new Map();
-let socket = null, myId = null, roomName = null, localStream = null, avatarData = "";
+let socket = null, myId = null, roomName = null, localStream = null, screenStream = null, avatarData = "";
 const savedProfile = JSON.parse(localStorage.getItem("vc-profile") || "{}");
 const userGuid = savedProfile.userGuid || crypto.randomUUID();
 localStorage.setItem("vc-profile", JSON.stringify({...savedProfile, userGuid}));
@@ -38,6 +38,7 @@ async function createPeer(id, initiator, data = {}) {
   const ui=makePeerCard(id,data), pc=new RTCPeerConnection(rtcConfig), record={pc,...ui};
   peerConnections.set(id,record);
   if(localStream) for(const track of localStream.getTracks()) pc.addTrack(track,localStream);
+  if(screenStream) for(const track of screenStream.getVideoTracks()) pc.addTrack(track,screenStream);
   pc.ontrack=(event)=>{record.video.srcObject=event.streams[0];};
   pc.onicecandidate=(event)=>{if(event.candidate)signal(id,{candidate:event.candidate});};
   pc.onconnectionstatechange=()=>{if(["failed","closed"].includes(pc.connectionState))removePeer(id);};
@@ -67,7 +68,7 @@ function connectSignaling(){return new Promise((resolve,reject)=>{
     const msg=JSON.parse(event.data);
     if(msg.type==="welcome")myId=msg.peerId;
     if(msg.type==="joined"){
-      clearTimeout(timeout);roomName=msg.room;status("Discovering peers · "+roomName,true);joinBtn.disabled=true;leaveBtn.disabled=false;roomInput.disabled=true;$("saveProfileBtn").disabled=false;
+      clearTimeout(timeout);roomName=msg.room;status("Discovering peers · "+roomName,true);joinBtn.disabled=true;leaveBtn.disabled=false;roomInput.disabled=true;shareScreenBtn.disabled=!localStream;$("saveProfileBtn").disabled=false;
       for(const p of msg.peers){peerProfiles.set(p.peerId,p);await createPeer(p.peerId,true,p);}sendProfile();resolve();
     }
     if(msg.type==="peer-joined"){peerProfiles.set(msg.peer.peerId,msg.peer);status("Peer discovered · "+msg.peer.nickname,true);await createPeer(msg.peer.peerId,false,msg.peer);}
@@ -88,11 +89,57 @@ async function startMedia(){
   localStream=await navigator.mediaDevices.getUserMedia({audio:audioId?{deviceId:{exact:audioId},echoCancellation:true,noiseSuppression:true}:{echoCancellation:true,noiseSuppression:true},video:videoId?{deviceId:{exact:videoId},width:{ideal:1280},height:{ideal:720}}:{width:{ideal:1280},height:{ideal:720}}});
   localVideo.srcObject=localStream;
   for(const [id,{pc}] of peerConnections){for(const track of localStream.getTracks())pc.addTrack(track,localStream);const offer=await pc.createOffer();await pc.setLocalDescription(offer);signal(id,{description:pc.localDescription});}
-  $("mediaState").textContent="Camera & mic active";muteBtn.disabled=cameraBtn.disabled=false;startMediaBtn.disabled=true;await refreshDevices();
+  $("mediaState").textContent="Camera & mic active";muteBtn.disabled=cameraBtn.disabled=shareScreenBtn.disabled=false;startMediaBtn.disabled=true;await refreshDevices();
 }
 async function refreshDevices(){if(!navigator.mediaDevices?.enumerateDevices)return;const devices=await navigator.mediaDevices.enumerateDevices();for(const[kind,id]of[["videoinput","cameraSelect"],["audioinput","micSelect"]]){const select=$(id),selected=select.value;select.replaceChildren(new Option(kind==="videoinput"?"Default camera":"Default microphone",""));devices.filter(d=>d.kind===kind).forEach((d,i)=>select.add(new Option(d.label||kind+" "+(i+1),d.deviceId)));if([...select.options].some(o=>o.value===selected))select.value=selected;}}
-function cleanupRoom(){for(const id of[...peerConnections.keys()])removePeer(id);peerProfiles.clear();roomName=null;joinBtn.disabled=false;leaveBtn.disabled=true;roomInput.disabled=false;$("saveProfileBtn").disabled=true;status("Offline");updatePeerCount();}
-function leaveRoom(){send({type:"leave"});socket?.close();socket=null;cleanupRoom();}
+
+async function renegotiatePeer(id, pc) {
+  try {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    signal(id, { description: pc.localDescription });
+  } catch (err) { console.warn("Peer renegotiation failed", id, err); }
+}
+async function startScreenShare() {
+  if (!navigator.mediaDevices?.getDisplayMedia) throw new Error("Screen sharing is not supported by this browser.");
+  screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: false });
+  const track = screenStream.getVideoTracks()[0];
+  $("localScreenPreview").srcObject = screenStream;
+  $("localScreenPreview").hidden = false;
+  for (const [id, item] of peerConnections) {
+    const sender = item.pc.getSenders().find(s => s.track?.kind === "video");
+    if (sender) await sender.replaceTrack(track);
+    else item.pc.addTrack(track, screenStream);
+    await renegotiatePeer(id, item.pc);
+  }
+  track.addEventListener("ended", stopScreenShare, { once: true });
+  shareScreenBtn.textContent = "Stop sharing";
+  status("Sharing your screen", true);
+}
+async function stopScreenShare() {
+  if (!screenStream) return;
+  const old = screenStream;
+  screenStream = null;
+  old.getTracks().forEach(t => t.stop());
+  $("localScreenPreview").srcObject = null;
+  $("localScreenPreview").hidden = true;
+  const cameraTrack = localStream?.getVideoTracks()[0] || null;
+  for (const [id, item] of peerConnections) {
+    const sender = item.pc.getSenders().find(s => s.track?.kind === "video");
+    if (sender && cameraTrack) await sender.replaceTrack(cameraTrack);
+    else if (sender && !cameraTrack) { try { item.pc.removeTrack(sender); } catch {} }
+    await renegotiatePeer(id, item.pc);
+  }
+  shareScreenBtn.textContent = "Share screen";
+  status("Screen sharing stopped", !!roomName);
+}
+shareScreenBtn.addEventListener("click", async () => {
+  try { if (screenStream) await stopScreenShare(); else await startScreenShare(); }
+  catch (err) { status(err.message, !!roomName); }
+});
+
+function cleanupRoom(){for(const id of[...peerConnections.keys()])removePeer(id);peerProfiles.clear();if(screenStream){screenStream.getTracks().forEach(t=>t.stop());screenStream=null;} $("localScreenPreview").srcObject=null;$("localScreenPreview").hidden=true;shareScreenBtn.disabled=true;shareScreenBtn.textContent="Share screen";roomName=null;joinBtn.disabled=false;leaveBtn.disabled=true;roomInput.disabled=false;$("saveProfileBtn").disabled=true;status("Offline");updatePeerCount();}
+function leaveRoom(){if(screenStream)stopScreenShare();send({type:"leave"});socket?.close();socket=null;cleanupRoom();}
 joinBtn.addEventListener("click",async()=>{try{joinBtn.disabled=true;status("Connecting…");await connectSignaling();}catch(err){status(err.message);joinBtn.disabled=false;socket?.close();socket=null;}});
 leaveBtn.addEventListener("click",leaveRoom);
 startMediaBtn.addEventListener("click",async()=>{try{await startMedia();}catch(err){status(err.message);}});
