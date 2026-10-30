@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24.22.1
       - name: Resolve and write npm lockfile
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Verify clean reproducible installation from lockfile
