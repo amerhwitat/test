@@ -42,7 +42,6 @@ services:
       - --static-auth-secret=${TURN_SHARED_SECRET:?Set TURN_SHARED_SECRET}
       - --realm=${TURN_REALM:?Set TURN_REALM}
       - --listening-port=3478
-      - --tls-listening-port=5349
       - --min-port=49160
       - --max-port=49200
       - --external-ip=${TURN_EXTERNAL_IP:?Set TURN_EXTERNAL_IP}
@@ -52,7 +51,6 @@ services:
     ports:
       - "3478:3478/udp"
       - "3478:3478/tcp"
-      - "5349:5349/tcp"
       - "49160-49200:49160-49200/udp"
     networks: [media]
     cap_drop: ["ALL"]
