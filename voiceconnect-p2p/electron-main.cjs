@@ -1,7 +1,7 @@
 const { app, BrowserWindow, session } = require("electron");
 const path = require("node:path");
-const { fork } = require("node:child_process");
-let serverProcess;
+
+let localServer;
 const port = Number(process.env.PORT || 8787);
 function createWindow(){
   const win=new BrowserWindow({width:1280,height:850,minWidth:760,minHeight:600,backgroundColor:"#06111d",webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});
@@ -15,4 +15,4 @@ app.whenReady().then(()=>{
   app.on("activate",()=>{if(BrowserWindow.getAllWindows().length===0)createWindow();});
 });
 app.on("window-all-closed",()=>{if(process.platform!=="darwin")app.quit();});
-app.on("before-quit",()=>{serverProcess?.kill();});
+app.on("before-quit",()=>{localServer?.close();});
