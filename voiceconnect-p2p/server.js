@@ -193,9 +193,25 @@ wss.on("connection", (ws, req) => {
   ws.on("close", () => leave(ws));
   ws.on("error", () => leave(ws));
 });
-export function startServer() {
-  server.listen(port, process.env.HOST || "0.0.0.0", () => console.log(`VoiceConnect P2P listening on http://${process.env.HOST || "0.0.0.0"}:${port}; registry: ${registryPath}`));
-  return server;
+export function startServer(options = {}) {
+  const host = options.host || process.env.HOST || "0.0.0.0";
+  const listenPort = Number.isInteger(options.port) ? options.port : port;
+  return new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.off("listening", onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      const address = server.address();
+      const actualPort = typeof address === "object" && address ? address.port : listenPort;
+      console.log(`VoiceConnect P2P listening on http://${host}:${actualPort}; registry: ${registryPath}`);
+      resolve({ server, host, port: actualPort });
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(listenPort, host);
+  });
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) startServer();
