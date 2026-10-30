@@ -4,6 +4,7 @@ import { extname, join, normalize, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
+import { createRateLimiter } from "./rate-limit.js";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number(process.env.PORT || 8787);
@@ -13,16 +14,13 @@ const trustProxy = process.env.TRUST_PROXY === "1";
 const authSecret = process.env.VOICECONNECT_AUTH_SECRET || "";
 const adminSecret = process.env.VOICECONNECT_ADMIN_SECRET || "";
 const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || "").split(",").map(x => x.trim()).filter(Boolean));
-const rateBuckets = new Map();
+const rateAllowed = createRateLimiter({ maxKeys: 10000, cleanupEvery: 256 });
+const MAX_ACTIVE_ROOMS = 256;
+const MAX_ACTIVE_WEBSOCKETS = 1000;
 const production = process.env.NODE_ENV === "production";
 if (production && authSecret.length < 32) throw new Error("Production requires VOICECONNECT_AUTH_SECRET (32+ chars).");
 if (production && allowedOrigins.size === 0) throw new Error("Production requires ALLOWED_ORIGINS.");
 if (production && (!process.env.TURN_URL || !process.env.TURN_SHARED_SECRET)) throw new Error("Production requires TURN_URL and TURN_SHARED_SECRET.");
-function rateAllowed(key, limit = 30, windowMs = 60000) {
-  const now = Date.now(), bucket = rateBuckets.get(key);
-  if (!bucket || now - bucket.start >= windowMs) { rateBuckets.set(key, { start: now, count: 1 }); return true; }
-  return ++bucket.count <= limit;
-}
 function signInvite(room, expires, nonce) {
   const payload = Buffer.from(JSON.stringify({ room, exp: expires, nonce })).toString("base64url");
   return payload + "." + createHmac("sha256", authSecret).update(payload).digest("base64url");
@@ -114,7 +112,8 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
 server.on("upgrade", (req, socket, head) => {
   const origin = req.headers.origin, ip = observedIp(req);
-  if ((production && (!origin || !allowedOrigins.has(origin))) || (origin && !allowedOrigins.has(origin)) || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
+  if ((production && (!origin || !allowedOrigins.has(origin))) || (origin && !allowedOrigins.has(origin))) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
+  if (wss.clients.size >= MAX_ACTIVE_WEBSOCKETS || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 429 Too Many Requests\r\nRetry-After: 60\r\n\r\n"); socket.destroy(); return; }
   if (new URL(req.url, "http://localhost").pathname !== "/signal") { socket.destroy(); return; }
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
 });
@@ -144,9 +143,11 @@ wss.on("connection", (ws, req) => {
       if (!/^[a-zA-Z0-9_-]{3,64}$/.test(roomName)) return send(ws, { type: "error", message: "Room must be 3–64 letters, numbers, _ or -" });
       if (!rateAllowed("join:" + ws.ip, 10, 60000)) return send(ws, { type: "error", message: "Too many join attempts" });
       if (!verifyInvite(msg.inviteToken, roomName)) return send(ws, { type: "error", message: "A valid, unexpired room invitation is required" });
+      if (!rooms.has(roomName) && rooms.size >= MAX_ACTIVE_ROOMS) return send(ws, { type: "error", message: "Server room capacity reached; try again later" });
+      const existingRoom = rooms.get(roomName);
+      if (existingRoom && existingRoom.size >= 8 && !existingRoom.has(ws.id)) return send(ws, { type: "error", message: "Room is full (maximum 8 peers)" });
       leave(ws);
       const room = rooms.get(roomName) || new Map();
-      if (room.size >= 8) return send(ws, { type: "error", message: "Room is full (maximum 8 peers)" });
       ws.room = roomName;
       const existing = [...room.values()].map(profileFor);
       room.set(ws.id, ws);
