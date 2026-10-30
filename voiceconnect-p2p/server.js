@@ -156,6 +156,7 @@ wss.on("connection", (ws, req) => {
       return;
     }
     if (msg.type === "profile" && ws.room) {
+      if (!rateAllowed("profile:" + ws.id, 10, 60000)) return send(ws, { type: "error", message: "Profile update rate limit exceeded" });
       const nickname = String(msg.nickname || "Guest").trim().replace(/[<>\u0000-\u001f]/g, "").slice(0, 32) || "Guest";
       const avatar = typeof msg.avatar === "string" && (msg.avatar.length < 160000 && (/^https:\/\//i.test(msg.avatar) || /^data:image\/(png|jpeg|webp|gif);base64,/i.test(msg.avatar))) ? msg.avatar : "";
       const suppliedGuid = typeof msg.userGuid === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(msg.userGuid) ? msg.userGuid.toLowerCase() : ws.id;
@@ -175,6 +176,7 @@ wss.on("connection", (ws, req) => {
       return;
     }
     if (msg.type === "peer-exchange" && ws.room) {
+      if (!rateAllowed("pex:" + ws.id, 10, 60000)) return send(ws, { type: "error", message: "Peer exchange rate limit exceeded" });
       const peers = [...(rooms.get(ws.room)?.values() || [])].filter(peer => peer !== ws).map(profileFor);
       send(ws, { type: "peer-exchange", peers });
       return;
