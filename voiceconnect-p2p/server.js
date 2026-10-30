@@ -44,11 +44,10 @@ try {
   if (parsed?.version === 1 && Array.isArray(parsed.peers)) {
     registry = {
       version: 1,
-      peers: parsed.peers.filter(peer => peer && typeof peer === "object" && !Array.isArray(peer)).map(peer => {
-        if (Object.hasOwn(peer, "observedIp")) privacyMigrationPending = true;
-        const { observedIp, ...privacySafePeer } = peer;
-        return privacySafePeer;
-      })
+      peers: parsed.peers.map(peer => {
+        if (peer && typeof peer === "object" && Object.hasOwn(peer, "observedIp")) privacyMigrationPending = true;
+        return sanitizePersistedPeer(peer);
+      }).filter(Boolean)
     };
   }
 } catch { /* first run: create registry on first consented profile */ }
@@ -135,6 +134,11 @@ server.on("upgrade", (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
 });
 function send(ws, message) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message)); }
+export function sanitizePersistedPeer(peer) {
+  if (!peer || typeof peer !== "object" || Array.isArray(peer)) return null;
+  const { observedIp, ...privacySafePeer } = peer;
+  return privacySafePeer;
+}
 export function buildRegistryEntry({ peerId, userGuid, nickname, avatar, observedIp, shareAddress, firstSeen, lastSeen }) {
   return {
     peerId,
