@@ -1,11 +1,11 @@
-const { app, BrowserWindow, dialog, session } = require("electron");
+const { app, BrowserWindow, dialog, session, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 
 let localServer;
 let mainWindow;
-let startupLog;
+let startupLog;\nconst mediaConsents = new Map();\nipcMain.handle("voiceconnect:consent-media", (event, kind) => {\n  if (!["camera", "microphone"].includes(kind)) return false;\n  mediaConsents.set(event.sender.id, new Set([...(mediaConsents.get(event.sender.id) || []), kind]));\n  return true;\n});
 
 function log(message, error) {
   const detail = error ? `\n${error.stack || error.message || String(error)}` : "";
@@ -32,7 +32,7 @@ async function createWindow(url) {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,\n      preload: path.join(__dirname, "preload.cjs")
     }
   });
 
@@ -55,7 +55,7 @@ async function createWindow(url) {
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
     log("Renderer process exited unexpectedly", details);
   });
-  mainWindow.on("closed", () => { mainWindow = null; });
+  mainWindow.on("closed", () => { mediaConsents.delete(mainWindow?.webContents?.id); mainWindow = null; });
 
   await mainWindow.loadURL(url);
   await windowReady;
@@ -81,7 +81,7 @@ async function startDesktop() {
       try {
         trusted = new URL(webContents.getURL()).hostname === "127.0.0.1";
       } catch {}
-      callback(trusted && ["media", "display-capture"].includes(permission));
+      const granted = mediaConsents.get(webContents.id) || new Set();\n      const requestedMedia = permission === "media" && granted.has("camera") && granted.has("microphone");\n      callback(trusted && (requestedMedia || permission === "display-capture"));
     });
 
     const dataDir = path.join(app.getPath("userData"), "data");
