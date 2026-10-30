@@ -2,6 +2,7 @@ import http from "node:http";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { extname, join, normalize, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHmac } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
