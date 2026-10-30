@@ -57,3 +57,10 @@ A preview tag must not be created until the branch is merged to main, all platfo
 - Added unit tests for rate-limit enforcement, expiry cleanup, bounded key count and invalid arguments.
 - These are source changes and automated test coverage; the new CI run must pass before acceptance. They do not replace live abuse, multi-device, NAT/TURN, or security testing.
 
+
+## Deployment-template validation improvements (2026-10-30)
+
+- Updated the signaling container from Node 20 to patched Node 24.22.1 and changed container dependency installation to `npm ci --omit=dev` using the committed lockfile.
+- Corrected a literal escaped newline in the Caddy environment mapping that prevented `ACME_EMAIL` from being passed as its own environment variable.
+- Added CI infrastructure validation for production Compose interpolation, signaling-container image build, and Caddyfile syntax validation. This validates the deployment template, not a live DNS/TLS/TURN deployment.
+- Added macOS camera and microphone usage descriptions to the app bundle metadata. Signing/notarization remains unconfigured because owner-controlled certificates and Apple credentials are not available to the automation.
