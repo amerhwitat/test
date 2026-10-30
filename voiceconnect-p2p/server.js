@@ -69,6 +69,11 @@ const server = http.createServer(async (req, res) => {
     const clientIp = observedIp(req);
     if (!rateAllowed("http:" + clientIp, 120)) { res.writeHead(429, { "Retry-After": "60" }); res.end("Rate limit exceeded"); return; }
     const requestUrl = new URL(req.url, "http://localhost");
+    if (requestUrl.pathname === "/api/health" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ ok: true, service: "voiceconnect-signaling", rooms: rooms.size, turnConfigured: Boolean(process.env.TURN_URL && process.env.TURN_SHARED_SECRET) }));
+      return;
+    }
     if (requestUrl.pathname === "/api/invitations" && req.method === "POST") {
       if (!authSecret || !adminSecret || req.headers.authorization !== "Bearer " + adminSecret) { res.writeHead(401); res.end("Unauthorized"); return; }
       let body = "";
