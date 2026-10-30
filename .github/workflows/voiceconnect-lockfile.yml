@@ -1,6 +1,12 @@
 name: VoiceConnect reproducible lockfile
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/voiceconnect-p2p-camera
+    paths:
+      - 'voiceconnect-p2p/package.json'
+      - '.github/workflows/voiceconnect-lockfile.yml'
 permissions:
   contents: write
 concurrency:
