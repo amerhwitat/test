@@ -1,13 +1,29 @@
 {
   "name": "voiceconnect-p2p",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Independent peer-to-peer voice and camera application inspired by the DirectX 9 VoiceConnect sample.",
   "type": "module",
+  "main": "electron-main.cjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "desktop": "electron .",
+    "build:win": "electron-builder --win nsis portable",
+    "build:linux": "electron-builder --linux AppImage deb",
+    "build:mac": "electron-builder --mac dmg zip"
   },
   "engines": { "node": ">=20" },
-  "dependencies": { "ws": "^8.18.0" }
+  "dependencies": { "ws": "^8.18.0" },
+  "devDependencies": { "electron": "^34.0.0", "electron-builder": "^25.1.8" },
+  "build": {
+    "appId": "org.voiceconnect.p2p",
+    "productName": "VoiceConnect P2P",
+    "files": ["**/*", "!data/**", "!node_modules/.cache/**"],
+    "asar": true,
+    "directories": { "output": "dist" },
+    "win": { "target": ["nsis", "portable"] },
+    "linux": { "target": ["AppImage", "deb"], "category": "Network;InstantMessaging;" },
+    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.social-networking" }
+  }
 }
