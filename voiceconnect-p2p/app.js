@@ -233,7 +233,8 @@ function attachFileChannel(channel,peerId,label){
 }
 async function handleFileProtocol(message,channel,peerId,label){
   if(message.type==="file-offer"){
-    if(!validateFileOffer(message.offer)||incomingFiles.has(message.offer.id)||incomingFiles.size>=4)return;
+    const reservedBytes=[...incomingFiles.values()].reduce((sum,item)=>sum+item.offer.size,0);
+    if(!validateFileOffer(message.offer)||incomingFiles.has(message.offer.id)||incomingFiles.size>=4||reservedBytes+message.offer.size>50*1024*1024)return;
     const state={offer:message.offer,chunks:new Array(message.offer.totalChunks),received:0,channel,peerId,label,accepted:false};
     incomingFiles.set(message.offer.id,state);
     const row=fileRow($("incomingFiles"),message.offer.name,label+" · "+(message.offer.size/1024/1024).toFixed(2)+" MB · waiting for approval");
