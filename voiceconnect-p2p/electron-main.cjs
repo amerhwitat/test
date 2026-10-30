@@ -1,5 +1,5 @@
 const { app, BrowserWindow, session } = require("electron");
-const path = require("node:path");
+const path = require("node:path");\nconst fs = require("node:fs");
 
 let localServer;
 const port = Number(process.env.PORT || 8787);
