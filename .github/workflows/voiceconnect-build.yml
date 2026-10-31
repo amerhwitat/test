@@ -74,29 +74,35 @@ jobs:
             if (!$portable) { throw "Missing $($target.Name) portable executable in $($target.Folder)" }
             Write-Host "$($target.Name) MSI: $($msi[0].Name); portable: $($portable[0].Name)"
             foreach ($operation in @(
-              @{ Name = "install"; Args = @("/i", "$($msi[0].FullName)", "/qn", "/norestart", "/L*v", (Join-Path $env:RUNNER_TEMP "$($target.Name)-install.log")) },
-              @{ Name = "uninstall"; Args = @("/x", "$($msi[0].FullName)", "/qn", "/norestart", "/L*v", (Join-Path $env:RUNNER_TEMP "$($target.Name)-uninstall.log")) }
+              @{ Name = "install"; Verb = "/i"; Log = (Join-Path $env:RUNNER_TEMP "$($target.Name)-install.log") },
+              @{ Name = "uninstall"; Verb = "/x"; Log = (Join-Path $env:RUNNER_TEMP "$($target.Name)-uninstall.log") }
             )) {
-              $process = Start-Process msiexec.exe -ArgumentList $operation.Args -PassThru
-              if (!$process.WaitForExit(300000)) {
+              # Quote the MSI path explicitly: Start-Process joins ArgumentList
+              # into a command line and does not quote paths containing spaces.
+              $msiPath = $msi[0].FullName
+              $argumentLine = "$($operation.Verb) `"$msiPath`" /qn /norestart /L*v `"$($operation.Log)`""
+              Write-Host "Running msiexec.exe $argumentLine"
+              $process = Start-Process -FilePath msiexec.exe -ArgumentList $argumentLine -PassThru
+              if (!$process.WaitForExit(900000)) {
+                $running = Get-Process msiexec -ErrorAction SilentlyContinue |
+                  Select-Object Id, StartTime, CPU, Responding
+                Write-Host "Timed-out msiexec processes: $($running | ConvertTo-Json -Compress)"
                 Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-                $log = Join-Path $env:RUNNER_TEMP "$($target.Name)-$($operation.Name).log"
-                if (Test-Path $log) {
-                  Write-Host "Last 80 lines of ${log}:"
-                  Get-Content $log -Tail 80
+                if (Test-Path $operation.Log) {
+                  Write-Host "Last 120 lines of $($operation.Log):"
+                  Get-Content $operation.Log -Tail 120
                 }
-                throw "$($target.Name) MSI $($operation.Name) exceeded the 5-minute timeout; msiexec was terminated."
+                throw "$($target.Name) MSI $($operation.Verb) exceeded the 15-minute timeout; msiexec was terminated."
               }
               $process.Refresh()
               if ($process.ExitCode -notin @(0,3010)) {
-                $log = Join-Path $env:RUNNER_TEMP "$($target.Name)-$($operation.Name).log"
-                if (Test-Path $log) {
-                  Write-Host "Last 80 lines of ${log}:"
-                  Get-Content $log -Tail 80
+                if (Test-Path $operation.Log) {
+                  Write-Host "Last 120 lines of $($operation.Log):"
+                  Get-Content $operation.Log -Tail 120
                 }
-                throw "$($target.Name) MSI $($operation.Name) failed: $($process.ExitCode)"
+                throw "$($target.Name) MSI $($operation.Verb) failed: $($process.ExitCode)"
               }
-              Write-Host "$($target.Name) MSI $($operation.Name) completed with exit code $($process.ExitCode)."
+              Write-Host "$($target.Name) MSI $($operation.Verb) completed with exit code $($process.ExitCode)."
             }
             Write-Host "$($target.Name) MSI install/uninstall smoke test passed."
           }
@@ -134,8 +140,8 @@ jobs:
         with:
           name: voiceconnect-windows-diagnostics
           path: |
-            ${{ runner.temp }}/*-install.log
-            ${{ runner.temp }}/*-uninstall.log
+            ${{ runner.temp }}/*.log
+            ${{ runner.temp }}/*.txt
           if-no-files-found: ignore
           retention-days: 30
       - if: always() && hashFiles('voiceconnect-p2p/npm-audit-report.json') != ''
