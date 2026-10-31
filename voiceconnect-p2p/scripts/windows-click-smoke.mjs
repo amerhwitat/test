@@ -23,6 +23,7 @@ try{
  await click("#emojiBtn");await delay(100);
  assert.equal(await evaluate('document.getElementById("emojiPicker").hidden'),true,"Emoji button click did not close picker");
  await click("#applyNetworkBtn");await delay(100);
+ await click("#clearAvatarBtn");await delay(100);
  assert.equal(await evaluate('document.getElementById("statusText").textContent'),"ICE configuration applied","Apply ICE handler did not run");
  const trusted=await evaluate("window.__voiceConnectTrustedClicks");
  assert.equal(trusted.length,3,"Expected three delivered clicks: "+JSON.stringify(trusted));
