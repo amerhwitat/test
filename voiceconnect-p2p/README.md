@@ -348,3 +348,11 @@ VoiceConnect currently has no integrated antivirus engine, content-disarm-and-re
 ## File-transfer test plan and release gate
 
 See [FILE_TRANSFER_TEST_PLAN.md](FILE_TRANSFER_TEST_PLAN.md) for repeatable two-device, interruption, integrity, Windows Save As/overwrite, and browser save-picker test cases. These are acceptance requirements; a written test plan is not evidence that the tests have passed. CI unit tests cover bounded chunk validation/reassembly only. The hosted workflow does not replace two physical devices or real browser/Windows file-dialog testing.
+
+## Published project articles
+
+- [VoiceConnect: architecture and capabilities](articles/voiceconnect-architecture.md)
+- [Installing and troubleshooting the Windows desktop app](articles/windows-desktop-guide.md)
+- [Privacy, security and deployment boundaries](articles/privacy-security-and-deployment.md)
+
+These articles describe the current prototype and distinguish implemented features from release-gated or externally unverified capabilities.
