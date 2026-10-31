@@ -73,10 +73,31 @@ jobs:
             if (!$msi) { throw "Missing $($target.Name) MSI artifact in $($target.Folder)" }
             if (!$portable) { throw "Missing $($target.Name) portable executable in $($target.Folder)" }
             Write-Host "$($target.Name) MSI: $($msi[0].Name); portable: $($portable[0].Name)"
-            $install = Start-Process msiexec.exe -ArgumentList @("/i", "$($msi[0].FullName)", "/qn", "/norestart") -Wait -PassThru
-            if ($install.ExitCode -notin @(0,3010)) { throw "$($target.Name) MSI installation failed: $($install.ExitCode)" }
-            $uninstall = Start-Process msiexec.exe -ArgumentList @("/x", "$($msi[0].FullName)", "/qn", "/norestart") -Wait -PassThru
-            if ($uninstall.ExitCode -notin @(0,3010)) { throw "$($target.Name) MSI uninstall failed: $($uninstall.ExitCode)" }
+            foreach ($operation in @(
+              @{ Name = "install"; Args = @("/i", "$($msi[0].FullName)", "/qn", "/norestart", "/L*v", (Join-Path $env:RUNNER_TEMP "$($target.Name)-install.log")) },
+              @{ Name = "uninstall"; Args = @("/x", "$($msi[0].FullName)", "/qn", "/norestart", "/L*v", (Join-Path $env:RUNNER_TEMP "$($target.Name)-uninstall.log")) }
+            )) {
+              $process = Start-Process msiexec.exe -ArgumentList $operation.Args -PassThru
+              if (!$process.WaitForExit(300000)) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                $log = Join-Path $env:RUNNER_TEMP "$($target.Name)-$($operation.Name).log"
+                if (Test-Path $log) {
+                  Write-Host "Last 80 lines of $log:"
+                  Get-Content $log -Tail 80
+                }
+                throw "$($target.Name) MSI $($operation.Name) exceeded the 5-minute timeout; msiexec was terminated."
+              }
+              $process.Refresh()
+              if ($process.ExitCode -notin @(0,3010)) {
+                $log = Join-Path $env:RUNNER_TEMP "$($target.Name)-$($operation.Name).log"
+                if (Test-Path $log) {
+                  Write-Host "Last 80 lines of $log:"
+                  Get-Content $log -Tail 80
+                }
+                throw "$($target.Name) MSI $($operation.Name) failed: $($process.ExitCode)"
+              }
+              Write-Host "$($target.Name) MSI $($operation.Name) completed with exit code $($process.ExitCode)."
+            }
             Write-Host "$($target.Name) MSI install/uninstall smoke test passed."
           }
       - if: runner.os == 'Windows'
