@@ -14,7 +14,18 @@ const startMediaBtn = $("startMediaBtn"), muteBtn = $("muteBtn"), cameraBtn = $(
 const localVideo = $("localVideo"), peersNode = $("peers"), shareScreenBtn = $("shareScreenBtn");
 const peerConnections = new Map(), peerProfiles = new Map(), pendingCandidates = new Map();
 let socket = null, myId = null, roomName = null, localStream = null, screenStream = null, avatarData = "";
-const savedProfile = JSON.parse(localStorage.getItem("vc-profile") || "{}");
+function readStoredJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (error) {
+    // A stale or partially written profile must not abort module startup:
+    // otherwise none of the page's click handlers are registered.
+    console.warn(`Ignoring unreadable local setting: ${key}`, error);
+    return fallback;
+  }
+}
+const savedProfile = readStoredJson("vc-profile", {});
 const inviteParams = new URLSearchParams(location.search);
 if (inviteParams.get("room")) $("room").value = inviteParams.get("room");
 if (inviteParams.get("invite")) $("inviteToken").value = inviteParams.get("invite");
