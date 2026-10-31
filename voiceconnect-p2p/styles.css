@@ -14,3 +14,10 @@ main{width:min(1320px,94vw)}.hero{padding:38px 0 24px}.hero h1{font-size:clamp(3
 .peer-connection-state{display:block;color:var(--muted);font-size:11px;margin:.35rem 0;letter-spacing:.03em}
 
 .file-transfer-list{display:grid;gap:10px;margin:12px 0}.file-transfer-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:12px;background:#071725;overflow-wrap:anywhere}.file-transfer-row>div:first-child{display:grid;gap:4px;min-width:0}.file-transfer-row .actions{margin:0}.file-transfer-row button{margin:0}.file-transfer-row .hint{font-size:12px;color:var(--muted)}#fileTransferPanel input[type=file]{max-width:100%}
+
+
+/* VoiceConnect explicit interactive hit targets. */
+button, input, select, textarea { pointer-events: auto; }
+button { position: relative; z-index: 1; touch-action: manipulation; }
+.actions { position: relative; z-index: 2; pointer-events: auto; }
+.actions > button { position: relative; z-index: 3; pointer-events: auto; }

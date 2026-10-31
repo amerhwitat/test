@@ -641,5 +641,8 @@ $("encryptionEnabled").addEventListener("change",async()=>{
 });
 $("encryptionPassphrase").addEventListener("change",()=>{if($("encryptionEnabled").checked){$("encryptionEnabled").checked=false;encryptionKey=null;$("encryptionPassphrase").disabled=false;$("encryptionState").textContent="Off";$("encryptionStatus").textContent="Passphrase changed. Enable encryption again to derive a new key."; }});
 loadKnownPeers();
+// Marker is set only after every static UI control has its event handler.
+window.__voiceConnectRendererReady = true;
+window.dispatchEvent(new Event("voiceconnect:renderer-ready"));
 
 function renderChat(message){const row=document.createElement("article");row.className="chat-message";const meta=document.createElement("div");meta.className="meta";const avatar=document.createElement("img");avatar.className="chat-avatar";avatar.alt="";avatar.src=safeAvatarSrc(message.avatar);const who=document.createElement("span");who.textContent=message.nickname||"Guest";const when=document.createElement("time");when.textContent=new Date(message.timestamp).toLocaleTimeString();meta.append(avatar,who,when);const body=document.createElement("p");body.textContent=message.text;if(message.encrypted){const lock=document.createElement("span");lock.className="encrypted-indicator";lock.textContent=" · encrypted";meta.append(lock);}row.append(meta,body);$("chatMessages").append(row);$("chatMessages").scrollTop=$("chatMessages").scrollHeight;}

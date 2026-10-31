@@ -134,6 +134,10 @@ jobs:
               if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
             }
           }
+      - if: runner.os == 'Windows'
+        name: Verify real Windows mouse clicks through Chromium input dispatch
+        shell: pwsh
+        run: node scripts/windows-click-smoke.mjs "dist/win-unpacked/VoiceConnect P2P.exe"
       - if: always() && runner.os == 'Windows'
         name: Upload Windows MSI diagnostics
         uses: actions/upload-artifact@v4
