@@ -2,6 +2,13 @@ import { deriveChatKey, encryptChatPayload, decryptChatPayload } from "./chat-cr
 import { isValidPublicIp, buildInvitationLink } from "./invitation.js";
 import { MAX_FILE_BYTES, FILE_CHUNK_BYTES, encodeBase64, decodeBase64, validateFileOffer, assembleFileChunks } from "./file-transfer.js";
 const $ = (id) => document.getElementById(id);
+// Only accept the bounded WebP data URLs produced by the local avatar uploader.
+// Remote profile data must never become an arbitrary navigation or script-capable URL.
+function safeAvatarSrc(value) {
+  return typeof value === "string" && value.length <= 48000 &&
+    /^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)
+    ? value : "avatar.svg";
+}
 const roomInput = $("room"), joinBtn = $("joinBtn"), leaveBtn = $("leaveBtn");
 const startMediaBtn = $("startMediaBtn"), muteBtn = $("muteBtn"), cameraBtn = $("cameraBtn");
 const localVideo = $("localVideo"), peersNode = $("peers"), shareScreenBtn = $("shareScreenBtn");
@@ -73,7 +80,7 @@ let rtcConfig = { iceServers: defaultIceServers };
 $("userGuid").textContent = userGuid;
 $("nickname").value = savedProfile.nickname || "";
 $("savePeer").checked = savedProfile.savePeer === true;
-if (savedProfile.avatar) { avatarData = savedProfile.avatar; const preview=$("avatarPreview"); preview.src=avatarData; preview.hidden=false; }
+if (savedProfile.avatar) { avatarData = savedProfile.avatar; const preview=$("avatarPreview"); preview.src=safeAvatarSrc(avatarData); preview.hidden=false; }
 if ($("shareAddress")) $("shareAddress").checked = savedProfile.shareAddress === true;
 function status(text, online = false) { $("statusText").textContent = text; $("statusDot").parentElement.classList.toggle("online", online); }
 function send(data) { if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data)); }
@@ -152,7 +159,7 @@ async function rememberPeer(id) {
 function makePeerCard(id, data = {}) {
   const card = document.createElement("article"); card.className = "peer-card";
   const head = document.createElement("div"); head.className = "peer-head";
-  const avatar = document.createElement("img"); avatar.className = "peer-avatar"; avatar.alt = ""; avatar.src = data.avatar || "avatar.svg";
+  const avatar = document.createElement("img"); avatar.className = "peer-avatar"; avatar.alt = ""; avatar.src = safeAvatarSrc(data.avatar);
   const label = document.createElement("div"); label.className = "peer-label"; label.textContent = (data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : "") + (data.addressShared && data.observedIp ? " · " + data.observedIp : "");
   head.append(avatar,label);
   const state = document.createElement("span"); state.className = "peer-connection-state"; state.textContent = "Discovered · connecting";
@@ -166,7 +173,7 @@ function updatePeerCard(id, data) {
   if (data.profileUpdated && data.addressShared === false && data.userGuid) {
     forgetKnownPeer(data.userGuid).catch(error => console.warn("Could not apply peer address-sharing revocation", error));
   }
-  const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : "") + (data.addressShared && data.observedIp ? " · " + data.observedIp : ""); item.avatar.src=data.avatar || "avatar.svg"; item.remember.disabled=!data.addressShared; }
+  const item=peerConnections.get(id); if(item){ item.label.textContent=(data.nickname || "Peer") + " · " + (data.userGuid || id).slice(0,8) + (knownPeers.has(data.userGuid) ? " · Known" : "") + (data.addressShared && data.observedIp ? " · " + data.observedIp : ""); item.avatar.src=safeAvatarSrc(data.avatar); item.remember.disabled=!data.addressShared; }
 }
 async function createPeer(id, initiator, data = {}) {
   if(peerConnections.has(id)) return peerConnections.get(id).pc;
@@ -382,7 +389,7 @@ function attachDirectDataChannel(channel){
       if(msg.type==="profile"){
         directRemoteProfile={nickname:String(msg.nickname||"Peer").slice(0,32),avatar:typeof msg.avatar==="string"?msg.avatar:"",userGuid:msg.userGuid||""};
         $("directRemoteNickname").textContent=directRemoteProfile.nickname;
-        $("directRemoteAvatar").src=directRemoteProfile.avatar||"avatar.svg";
+        $("directRemoteAvatar").src=safeAvatarSrc(directRemoteProfile.avatar);
       }
       if(msg.type==="chat")await receiveChatMessage({...msg,nickname:msg.nickname||directRemoteProfile.nickname,timestamp:msg.timestamp||new Date().toISOString(),avatar:msg.avatar||directRemoteProfile.avatar});
     }
@@ -593,7 +600,7 @@ $("avatarFile").addEventListener("change",async(e)=>{const file=e.target.files?.
     let quality=0.72;avatarData=canvas.toDataURL("image/webp",quality);
     while(avatarData.length>48000&&quality>0.32){quality-=0.08;avatarData=canvas.toDataURL("image/webp",quality);}
     if(avatarData.length>48000)throw new Error("Image is too detailed to share safely; choose a smaller image.");
-    const preview=$("avatarPreview");if(preview){preview.src=avatarData;preview.hidden=false;}
+    const preview=$("avatarPreview");if(preview){preview.src=safeAvatarSrc(avatarData);preview.hidden=false;}
     const p=profile();localStorage.setItem("vc-profile",JSON.stringify({userGuid,nickname:p.nickname,avatar:avatarData,savePeer:p.saveLocally,shareAddress:p.shareAddress}));
     if(roomName)sendProfile();sendDirectProfile();status("Local avatar loaded and saved on this device",!!roomName);
   }catch(err){status("Could not read that image: "+err.message);}
@@ -634,4 +641,4 @@ $("encryptionEnabled").addEventListener("change",async()=>{
 $("encryptionPassphrase").addEventListener("change",()=>{if($("encryptionEnabled").checked){$("encryptionEnabled").checked=false;encryptionKey=null;$("encryptionPassphrase").disabled=false;$("encryptionState").textContent="Off";$("encryptionStatus").textContent="Passphrase changed. Enable encryption again to derive a new key."; }});
 loadKnownPeers();
 
-function renderChat(message){const row=document.createElement("article");row.className="chat-message";const meta=document.createElement("div");meta.className="meta";const avatar=document.createElement("img");avatar.className="chat-avatar";avatar.alt="";avatar.src=message.avatar||"avatar.svg";const who=document.createElement("span");who.textContent=message.nickname||"Guest";const when=document.createElement("time");when.textContent=new Date(message.timestamp).toLocaleTimeString();meta.append(avatar,who,when);const body=document.createElement("p");body.textContent=message.text;if(message.encrypted){const lock=document.createElement("span");lock.className="encrypted-indicator";lock.textContent=" · encrypted";meta.append(lock);}row.append(meta,body);$("chatMessages").append(row);$("chatMessages").scrollTop=$("chatMessages").scrollHeight;}
+function renderChat(message){const row=document.createElement("article");row.className="chat-message";const meta=document.createElement("div");meta.className="meta";const avatar=document.createElement("img");avatar.className="chat-avatar";avatar.alt="";avatar.src=safeAvatarSrc(message.avatar);const who=document.createElement("span");who.textContent=message.nickname||"Guest";const when=document.createElement("time");when.textContent=new Date(message.timestamp).toLocaleTimeString();meta.append(avatar,who,when);const body=document.createElement("p");body.textContent=message.text;if(message.encrypted){const lock=document.createElement("span");lock.className="encrypted-indicator";lock.textContent=" · encrypted";meta.append(lock);}row.append(meta,body);$("chatMessages").append(row);$("chatMessages").scrollTop=$("chatMessages").scrollHeight;}
