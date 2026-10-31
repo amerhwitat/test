@@ -15,8 +15,18 @@ try{
  await new Promise((resolve,reject)=>{socket.addEventListener("open",resolve,{once:true});socket.addEventListener("error",reject,{once:true});});
  socket.addEventListener("message",e=>{let m;try{m=JSON.parse(e.data);}catch{return;}if(!m.id||!pending.has(m.id))return;const p=pending.get(m.id);pending.delete(m.id);clearTimeout(p.timer);if(m.error)p.reject(new Error(p.method+": "+m.error.message));else p.resolve(m.result||{});});
  await cdp("Runtime.enable");
- const boot=await evaluate('({ready:window.__voiceConnectRendererReady===true,title:document.title,error:window.__voiceConnectRendererError||null})');
- assert.equal(boot.ready,true,"Renderer did not finish binding controls: "+JSON.stringify(boot));
+ // The CDP page target appears before Electron's deferred module script has
+ // necessarily finished importing and binding its controls. Wait for the
+ // renderer's explicit ready marker instead of racing the module loader.
+ let boot={ready:false,title:"",error:null};
+ const readyDeadline=Date.now()+30000;
+ while(Date.now()<readyDeadline){
+   boot=await evaluate('({ready:window.__voiceConnectRendererReady===true,title:document.title,error:window.__voiceConnectRendererError||null,loading:document.readyState})');
+   if(boot.ready)break;
+   if(boot.error)throw new Error("Renderer initialization failed: "+boot.error);
+   await delay(200);
+ }
+ assert.equal(boot.ready,true,"Renderer did not finish binding controls within 30s: "+JSON.stringify(boot));
  await evaluate('window.__voiceConnectTrustedClicks=[];for(const id of ["emojiBtn","applyNetworkBtn","clearAvatarBtn"])document.getElementById(id)?.addEventListener("click",e=>window.__voiceConnectTrustedClicks.push({id,trusted:e.isTrusted}),true)');
  await click("#emojiBtn");await delay(100);
  assert.equal(await evaluate('document.getElementById("emojiPicker").hidden'),false,"Emoji button click did not open picker");
@@ -26,7 +36,7 @@ try{
  await click("#clearAvatarBtn");await delay(100);
  assert.equal(await evaluate('document.getElementById("statusText").textContent'),"ICE configuration applied","Apply ICE handler did not run");
  const trusted=await evaluate("window.__voiceConnectTrustedClicks");
- assert.equal(trusted.length,4,"Expected three delivered clicks: "+JSON.stringify(trusted));
+ assert.equal(trusted.length,4,"Expected four delivered clicks: "+JSON.stringify(trusted));
  assert.ok(trusted.every(x=>x.trusted),"Input was not delivered as trusted mouse events");
  console.log("PASS: packaged Windows GUI loaded; Chromium hit-testing and trusted mouse clicks activated UI handlers.");
 }finally{try{socket?.close();}catch{}if(child&&child.exitCode===null){child.kill();await Promise.race([new Promise(r=>child.once("exit",r)),delay(5000)]);}}
