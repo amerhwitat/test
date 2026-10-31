@@ -1,3 +1,38 @@
+## Latest candidate evidence — commit 2d551f2440c41ecac8cc455429ecf991a37aa63e (2026-10-31)
+
+This is the current source candidate. The following three workflows completed successfully on this exact SHA:
+
+- [Cross-platform validation #41182742327](https://github.com/amerhwitat/test/actions/runs/41182742327): PASS.
+- [Security analysis #41182742208](https://github.com/amerhwitat/test/actions/runs/41182742208): PASS (CodeQL analysis, dependency audit, secret scan and SBOM job).
+- [Python/Web/Aurora #41182742197](https://github.com/amerhwitat/test/actions/runs/41182742197): PASS (Python 3.8, Python 3.14, Node/Web and native Aurora).
+
+Verified platform outputs and acceptance steps:
+
+- Linux desktop: build and artifact upload PASS.
+- macOS desktop: build and artifact upload PASS; unsigned preview only.
+- Windows desktop: npm tests and base package build PASS; Direct3D 11 and OpenGL variants PASS; MSI install/uninstall verification PASS; packaged GUI startup PASS; diagnostics upload PASS.
+- Browser extension validation and packaging: PASS.
+- Native Java, Python and C++ companion chat-client build checks: PASS.
+- Production Compose/container/Caddy configuration checks: PASS; no production deployment.
+- CycloneDX SBOM and Gitleaks scan artifacts generated; dependency audit and CodeQL jobs PASS.
+
+Important qualification: a successful CodeQL workflow run means the analysis job completed, but it does not by itself prove that all previously reported PR alerts are closed or formally dispositioned. The code-scanning alert inventory could not be independently retrieved through the available repository interface in this pass. Keep any outstanding alert/review finding open until inspected in GitHub Security > Code scanning.
+
+Preview artifacts (GitHub login/repository access may be required; artifacts expire according to GitHub retention):
+
+- [Windows desktop package](https://github.com/amerhwitat/test/actions/runs/41182742327/artifacts/13036600045) — 1.56 GB.
+- [Windows Direct3D 11 variant](https://github.com/amerhwitat/test/actions/runs/41182742327/artifacts/13036425508).
+- [Windows OpenGL variant](https://github.com/amerhwitat/test/actions/runs/41182742327/artifacts/13036370554).
+- [Windows diagnostics](https://github.com/amerhwitat/test/actions/runs/41182742327/artifacts/13035855753).
+- [macOS desktop package](https://github.com/amerhwitat/test/actions/runs/41182742327/artifacts/13035453531).
+- [Linux desktop package](https://github.com/amerhwitat/test/actions/runs/41182742327/artifacts/13034594842).
+- [Browser extensions](https://github.com/amerhwitat/test/actions/runs/41182742327/artifacts/13034944067).
+- [Native chat clients](https://github.com/amerhwitat/test/actions/runs/41182742327/artifacts/13035303821).
+- [CycloneDX SBOM](https://github.com/amerhwitat/test/actions/runs/41182742208/artifacts/13034609652).
+- [Gitleaks SARIF report](https://github.com/amerhwitat/test/actions/runs/41182742208/artifacts/13035767059).
+
+These are pull-request CI preview artifacts, not signed production release assets. They are not evidence of physical-device acceptance, production deployment, signing/notarization, or independent security review.
+
 # VoiceConnect release-gate status
 
 Last updated: 2026-10-31
