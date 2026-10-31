@@ -20,10 +20,10 @@ test("profile storage returns parsed profile data", () => {
 
 test("connect panels cannot sit above and intercept controls in later sections", () => {
   const css = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-  const rules = [...css.matchAll(/\.connect\\s*\\{([^}]*)\\}/g)].map(match => match[1]);
+  const rules = [...css.matchAll(/\.connect\s*\{([^}]*)\}/g)].map(match => match[1]);
   assert.ok(rules.length > 0, "connect panel styles should exist");
   for (const declarations of rules) {
-    assert.doesNotMatch(declarations, /position\\s*:\\s*sticky/i);
-    assert.doesNotMatch(declarations, /z-index\\s*:\\s*[1-9]/i);
+    assert.doesNotMatch(declarations, /position\s*:\s*sticky/i);
+    assert.doesNotMatch(declarations, /z-index\s*:\s*[1-9]/i);
   }
 });
