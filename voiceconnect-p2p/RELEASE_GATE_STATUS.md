@@ -40,7 +40,7 @@ Release status: **BLOCKED — preview only; not production-certified**
 
 This file records verified evidence, not intended behavior. Source changes, queued jobs, simulated tests, container builds, and generated packages do not count as physical-device or production acceptance.
 
-## Latest candidate evidence — 2026-10-31
+## Historical candidate evidence — superseded by the latest candidate above
 
 Candidate commit: `90371ef0a48cfd00d5232147c0c4d6488be9d95b`.
 Cross-platform workflow run: [#41181548364](https://github.com/amerhwitat/test/actions/runs/41181548364).
@@ -67,7 +67,7 @@ These are preview downloads from a pull-request run, not public production relea
 - `voiceconnect-p2p/package-lock.json` is committed. The lockfile workflow generated it and a clean `npm ci --ignore-scripts` verification passed in run #41120372384.
 - Desktop CI uses the committed lockfile when present and Node 24.22.1. Dependency audit reports must be valid, complete JSON; missing/incomplete/error reports fail closed. High and critical findings block builds.
 - Electron is pinned to 45.2.0. A clean three-platform audit for the current final commit is still required; older Electron 41.x audit results do not prove the 45.2.0 dependency graph is clean.
-- Windows CI is configured to build base, Direct3D 11 and OpenGL variants, install/uninstall each MSI, and launch-test each packaged app. A prior run did not complete those acceptance steps. Require a fresh green run on the latest commit.
+- Windows CI builds base, Direct3D 11 and OpenGL variants, verifies MSI installation/uninstallation, and launch-tests packaged apps. These steps passed on source candidate `2d551f2440c41ecac8cc455429ecf991a37aa63e` in cross-platform run #41182742327; the documentation-only status update is commit `d1087673f608c2f7994e9e0a69d0e8c0ed533b46`.
 - Infrastructure CI validates Compose interpolation, builds the production signaling container and validates Caddy configuration. This does not prove DNS, TLS, external firewall, TURN allocation or real media relay.
 - `voiceconnect-security.yml` adds CodeQL JavaScript/TypeScript analysis, a lockfile-based `npm audit --audit-level=high` gate, Gitleaks history scanning and CycloneDX SBOM generation. GitHub Dependency Review was removed after its action reported that this repository's dependency graph is disabled. The replacement audit does not depend on that setting. The workflow must pass on the final commit; no independent security review is implied.
 - `voiceconnect-release.yml` requires clean npm audit, npm tests, Windows Authenticode signatures, macOS code-signature verification, Gatekeeper assessment and notarization stapling. A release tag must point to a commit reachable from `main`.
