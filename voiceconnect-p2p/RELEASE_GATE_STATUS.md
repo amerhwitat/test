@@ -1,9 +1,31 @@
 # VoiceConnect release-gate status
 
-Last updated: 2026-10-30
+Last updated: 2026-10-31
 Release status: **BLOCKED — preview only; not production-certified**
 
 This file records verified evidence, not intended behavior. Source changes, queued jobs, simulated tests, container builds, and generated packages do not count as physical-device or production acceptance.
+
+## Latest candidate evidence — 2026-10-31
+
+Candidate commit: `90371ef0a48cfd00d5232147c0c4d6488be9d95b`.
+Cross-platform workflow run: [#41181548364](https://github.com/amerhwitat/test/actions/runs/41181548364).
+
+- Linux desktop package build and artifact upload: PASS.
+- macOS desktop package build and artifact upload: PASS. This is an unsigned CI preview package, not a signed/notarized release.
+- Browser extension validation/package: PASS.
+- Native companion chat client builds: PASS.
+- Production infrastructure Compose/container/Caddy validation: PASS; no production deployment occurred.
+- Windows npm tests: PASS. Windows base package build is still running; MSI install/uninstall, packaged GUI startup and Windows artifact upload have not yet run.
+- CodeQL on this candidate: FAIL — reports 3 high-severity and 2 medium-severity alerts in PR #8. Treat all as release blockers until each alert is inspected, fixed or formally dispositioned with evidence, and a clean scan passes. The available check summary does not include sufficient alert detail to safely prescribe source edits.
+- The workflow's dependency audit steps passed on the Linux/macOS jobs. This does not clear CodeQL findings or constitute an independent review.
+
+Preview artifact pages (GitHub login and repository access may be required):
+- [Linux desktop](https://github.com/amerhwitat/test/actions/runs/41181548364/artifacts/13035541279)
+- [macOS desktop](https://github.com/amerhwitat/test/actions/runs/41181548364/artifacts/13035172130)
+- [Browser extensions](https://github.com/amerhwitat/test/actions/runs/41181548364/artifacts/13035546093)
+- [Native chat clients](https://github.com/amerhwitat/test/actions/runs/41181548364/artifacts/13035581040)
+
+These are preview downloads from a pull-request run, not public production release assets. Artifact retention and repository access controls apply.
 
 ## Automated source and CI controls
 
