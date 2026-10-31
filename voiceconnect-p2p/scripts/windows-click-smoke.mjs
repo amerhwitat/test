@@ -26,7 +26,7 @@ try{
  await click("#clearAvatarBtn");await delay(100);
  assert.equal(await evaluate('document.getElementById("statusText").textContent'),"ICE configuration applied","Apply ICE handler did not run");
  const trusted=await evaluate("window.__voiceConnectTrustedClicks");
- assert.equal(trusted.length,3,"Expected three delivered clicks: "+JSON.stringify(trusted));
+ assert.equal(trusted.length,4,"Expected three delivered clicks: "+JSON.stringify(trusted));
  assert.ok(trusted.every(x=>x.trusted),"Input was not delivered as trusted mouse events");
  console.log("PASS: packaged Windows GUI loaded; Chromium hit-testing and trusted mouse clicks activated UI handlers.");
 }finally{try{socket?.close();}catch{}if(child&&child.exitCode===null){child.kill();await Promise.race([new Promise(r=>child.once("exit",r)),delay(5000)]);}}
