@@ -18,6 +18,23 @@ const rateAllowed = createRateLimiter({ maxKeys: 10000, cleanupEvery: 256 });
 const MAX_ACTIVE_ROOMS = 256;
 const MAX_ACTIVE_WEBSOCKETS = 1000;
 const production = process.env.NODE_ENV === "production";
+
+// Browser module scripts send Origin even for same-origin assets. Keep the
+// configured production allowlist, while allowing the exact local origin for
+// desktop/dev builds. Do not trust arbitrary origins or forwarded host values.
+export function isAllowedRequestOrigin(req, origin, options = {}) {
+  if (!origin) return true;
+  const origins = options.allowedOrigins || allowedOrigins;
+  const isProduction = options.production ?? production;
+  if (origins.has(origin)) return true;
+  if (isProduction) return false;
+  try {
+    const protocol = req.socket?.encrypted ? "https:" : "http:";
+    return new URL(origin).origin === protocol + "//" + req.headers.host;
+  } catch {
+    return false;
+  }
+}
 if (production && authSecret.length < 32) throw new Error("Production requires VOICECONNECT_AUTH_SECRET (32+ chars).");
 if (production && allowedOrigins.size === 0) throw new Error("Production requires ALLOWED_ORIGINS.");
 if (production && (!process.env.TURN_URL || !process.env.TURN_SHARED_SECRET)) throw new Error("Production requires TURN_URL and TURN_SHARED_SECRET.");
@@ -79,7 +96,7 @@ function observedIp(req) {
 const server = http.createServer(async (req, res) => {
   try {
     const origin = req.headers.origin;
-    if (origin && !allowedOrigins.has(origin)) { res.writeHead(403); res.end("Origin not allowed"); return; }
+    if (!isAllowedRequestOrigin(req, origin)) { res.writeHead(403); res.end("Origin not allowed"); return; }
     const clientIp = observedIp(req);
     if (!rateAllowed("http:" + clientIp, 120)) { res.writeHead(429, { "Retry-After": "60" }); res.end("Rate limit exceeded"); return; }
     const requestUrl = new URL(req.url, "http://localhost");
@@ -128,7 +145,7 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
 server.on("upgrade", (req, socket, head) => {
   const origin = req.headers.origin, ip = observedIp(req);
-  if ((production && (!origin || !allowedOrigins.has(origin))) || (origin && !allowedOrigins.has(origin))) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
+  if ((production && !origin) || !isAllowedRequestOrigin(req, origin)) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
   if (wss.clients.size >= MAX_ACTIVE_WEBSOCKETS || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 429 Too Many Requests\r\nRetry-After: 60\r\n\r\n"); socket.destroy(); return; }
   if (new URL(req.url, "http://localhost").pathname !== "/signal") { socket.destroy(); return; }
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
