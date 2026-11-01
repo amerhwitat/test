@@ -17,8 +17,10 @@ try{
    if(m.method==="Runtime.exceptionThrown") rendererDiagnostics.push({kind:"exception",details:m.params?.exceptionDetails});
    if(m.method==="Runtime.consoleAPICalled") rendererDiagnostics.push({kind:"console",type:m.params?.type,args:(m.params?.args||[]).map(x=>x.value??x.description??x.type)});
    if(m.method==="Log.entryAdded") rendererDiagnostics.push({kind:"log",entry:m.params?.entry});
+   if(m.method==="Network.loadingFailed") rendererDiagnostics.push({kind:"network-failed",requestId:m.params?.requestId,error:m.params?.errorText,url:m.params?.requestId});
+   if(m.method==="Network.responseReceived" && /\\.js(?:\\?|$)/.test(m.params?.response?.url||"")) rendererDiagnostics.push({kind:"script-response",url:m.params.response.url,status:m.params.response.status,mimeType:m.params.response.mimeType});
    if(!m.id||!pending.has(m.id))return;const p=pending.get(m.id);pending.delete(m.id);clearTimeout(p.timer);if(m.error)p.reject(new Error(p.method+": "+m.error.message));else p.resolve(m.result||{});});
- await cdp("Runtime.enable"); await cdp("Log.enable");
+ await cdp("Runtime.enable"); await cdp("Log.enable"); await cdp("Network.enable");
  // The CDP page target appears before Electron's deferred module script has
  // necessarily finished importing and binding its controls. Wait for the
  // renderer's explicit ready marker instead of racing the module loader.
