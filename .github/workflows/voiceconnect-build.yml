@@ -155,20 +155,21 @@ jobs:
           path: voiceconnect-p2p/npm-audit-report.json
           if-no-files-found: error
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: voiceconnect-${{ matrix.os }}-desktop
           path: voiceconnect-p2p/dist/*
           if-no-files-found: error
           retention-days: 30
-      - if: runner.os == 'Windows'
+      - if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: voiceconnect-windows-directx
           path: voiceconnect-p2p/dist/directx/*
           if-no-files-found: error
           retention-days: 30
-      - if: runner.os == 'Windows'
+      - if: always() && runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: voiceconnect-windows-opengl
