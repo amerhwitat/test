@@ -12,7 +12,7 @@
     "build:win": "electron-builder --win nsis msi portable",
     "build:linux": "electron-builder --linux AppImage deb",
     "build:mac": "electron-builder --mac dmg zip",
-    "test": "node --check server.js && node --test tests/*.test.* && node --check app.js && node --check chat-crypto.js && node --check invitation.js && node --check file-transfer.js && node --check discovery/peer-record.js && node --check electron-main.cjs && node --check electron-file-save.cjs && node --check electron-main-directx.cjs && node --check electron-main-opengl.cjs && node --check electron-builder.directx.cjs && node --check electron-builder.opengl.cjs && node --check preload.cjs && node --check extensions/chromium/popup.js && node --check extensions/firefox/popup.js && node --test",
+    "test": "node --check server.js && node --check app.js && node --check chat-crypto.js && node --check invitation.js && node --check file-transfer.js && node --check discovery/peer-record.js && node --check electron-main.cjs && node --check electron-file-save.cjs && node --check electron-main-directx.cjs && node --check electron-main-opengl.cjs && node --check electron-builder.directx.cjs && node --check electron-builder.opengl.cjs && node --check preload.cjs && node --check extensions/chromium/popup.js && node --check extensions/firefox/popup.js && node --test",
     "build:win:directx": "electron-builder --win nsis msi portable --config electron-builder.directx.cjs",
     "build:win:opengl": "electron-builder --win nsis msi portable --config electron-builder.opengl.cjs"
   },
