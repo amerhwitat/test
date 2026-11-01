@@ -27,7 +27,11 @@ try{
  while(Date.now()<readyDeadline){
    boot=await evaluate('({ready:window.__voiceConnectRendererReady===true,title:document.title,error:window.__voiceConnectRendererError||null,loading:document.readyState})');
    if(boot.ready)break;
-   if(boot.error)throw new Error("Renderer initialization failed: "+boot.error);
+   if(boot.error){
+     let diagnostics={};
+     try{diagnostics=await evaluate('({url:location.href,readyState:document.readyState,scripts:[...document.scripts].map(s=>({src:s.src,type:s.type,async:s.async,defer:s.defer})),resources:performance.getEntriesByType("resource").map(r=>({name:r.name,duration:r.duration,transferSize:r.transferSize,responseStatus:r.responseStatus||null})),bodyText:document.body?.innerText?.slice(0,1200),marker:window.__voiceConnectRendererReady===true,error:window.__voiceConnectRendererError||null})')}catch(error){diagnostics={snapshotError:error.message};}
+     throw new Error("Renderer initialization failed: "+JSON.stringify({boot,diagnostics,rendererDiagnostics}));
+   }
    await delay(200);
  }
  if(!boot.ready){
