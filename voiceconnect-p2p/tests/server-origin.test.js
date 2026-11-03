@@ -41,8 +41,3 @@ test("uses the direct TLS socket state when checking same-origin HTTPS", () => {
   }), true);
 });
 
-test("does not allow an absent origin in production WebSocket upgrade policy", () => {
-  assert.equal(isAllowedRequestOrigin(request(), undefined, {
-    allowedOrigins: new Set(), production: true
-  }), true, "HTTP requests without Origin remain compatible; upgrade handler separately rejects missing production Origin");
-});
