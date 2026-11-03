@@ -29,8 +29,13 @@ export function isAllowedRequestOrigin(req, origin, options = {}) {
   if (origins.has(origin)) return true;
   if (isProduction) return false;
   try {
+    const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase();
+    // Restrict non-production same-origin bypass to explicit loopback names.
+    // A hostile DNS name can resolve to loopback; matching Host alone is not enough.
+    if (!["localhost", "127.0.0.1", "[::1]", "::1"].includes(hostname)) return false;
     const protocol = req.socket?.encrypted ? "https:" : "http:";
-    return new URL(origin).origin === protocol + "//" + req.headers.host;
+    return url.origin === protocol + "//" + req.headers.host;
   } catch {
     return false;
   }
