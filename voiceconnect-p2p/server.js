@@ -145,7 +145,7 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
 server.on("upgrade", (req, socket, head) => {
   const origin = req.headers.origin, ip = observedIp(req);
-  if ((production && !origin) || !isAllowedRequestOrigin(req, origin)) { socket.write("HTTP/1.1 403 Forbidden\\r\\n\\r\\n"); socket.destroy(); return; }
+  if ((production && !origin) || !isAllowedRequestOrigin(req, origin)) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
   if (wss.clients.size >= MAX_ACTIVE_WEBSOCKETS || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 429 Too Many Requests\r\nRetry-After: 60\r\n\r\n"); socket.destroy(); return; }
   if (new URL(req.url, "http://localhost").pathname !== "/signal") { socket.destroy(); return; }
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
