@@ -29,8 +29,14 @@ export function isAllowedRequestOrigin(req, origin, options = {}) {
   if (origins.has(origin)) return true;
   if (isProduction) return false;
   try {
+    const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase();
+    // Only the explicit loopback names used by the packaged desktop app are
+    // eligible for local-mode bypass. Exact Host matching alone is vulnerable
+    // to DNS-rebinding origins that resolve an attacker-controlled name to loopback.
+    if (!["localhost", "127.0.0.1", "[::1]", "::1"].includes(hostname)) return false;
     const protocol = req.socket?.encrypted ? "https:" : "http:";
-    return new URL(origin).origin === protocol + "//" + req.headers.host;
+    return url.origin === protocol + "//" + req.headers.host;
   } catch {
     return false;
   }
