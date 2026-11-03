@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#071522"><title>VoiceConnect P2P</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header class="topbar"><a class="brand" href="/" aria-label="VoiceConnect home"><span class="brand-mark">VC</span><span>VoiceConnect <small>P2P</small></span></a><span class="status"><i id="statusDot"></i><span id="statusText">Offline</span></span></header>
+<main>
+<section class="hero"><p class="eyebrow">DIRECT MEDIA · CAMERA · MICROPHONE</p><h1>Talk face to face.<br><em>Peer to peer.</em></h1><p class="intro">Connect directly without paid hosting using private offer/answer exchange, or optionally use shared rooms when you have a signaling server. Media travels peer-to-peer whenever network conditions permit.</p></section>
+<section class="lobby-banner panel"><div><p class="eyebrow">MEETING LOBBY · MULTI-PARTICIPANT</p><h2>Optional hosted/self-hosted room</h2><p class="hint">Meet with up to 8 participants in a shared room. Everyone can publish camera and microphone, share a screen, and use the room chat.</p></div><span class="lobby-live"><i></i> Room lobby</span></section>
+<section class="connect panel" id="directConnectPanel">
+  <div class="section-heading"><div><p class="eyebrow">NO ACCOUNT · NO HOSTED SERVER</p><h2>Direct peer connection</h2></div><span class="pill">P2P</span></div>
+  <p class="hint">Connect two devices without Hetzner, paid hosting, room accounts, or a signaling service. Both people open VoiceConnect, enable the media they want, then exchange the connection text through any private channel (QR, nearby share, USB, or copy/paste). Public STUN may help discover a direct route; restrictive NAT/firewalls can still prevent a connection without TURN.</p>
+  <div class="actions"><button id="directCreateOffer" class="primary">Create offer (caller)</button><button id="directCreateAnswer" class="secondary">Create answer (receiver)</button><button id="directApplyAnswer" class="secondary">Apply answer (caller)</button><button id="directReset" class="secondary">Reset direct connection</button></div>
+  <label for="directOfferInput">Offer / answer exchange text</label>
+  <textarea id="directOfferInput" rows="5" spellcheck="false" placeholder="Paste the other participant's offer or answer here"></textarea>
+  <label for="directSignalOutput">Your connection text to send privately</label>
+  <textarea id="directSignalOutput" rows="5" readonly spellcheck="false" placeholder="Your generated offer or answer appears here"></textarea>
+  <div class="actions"><button id="directCopyOutput" class="secondary">Copy connection text</button></div>
+  <p id="directStatus" class="hint" role="status">Direct mode is ready. Enable camera/microphone first if you want to include them.</p>
+  <div class="direct-peer-head"><img id="directRemoteAvatar" class="peer-avatar" src="avatar.svg" alt=""><strong id="directRemoteNickname">Waiting for participant</strong></div><video id="directRemoteVideo" class="local-video" autoplay playsinline></video>
+</section><section class="controls panel" id="publicIpPanel">
+<div class="section-heading"><div><p class="eyebrow">NETWORK IDENTITY</p><h2>My public internet IP</h2></div><span class="pill">Optional</span></div>
+<p class="hint">Check the public address visible to an internet service. Your ISP, VPN or carrier network may change it; it is not necessarily a directly reachable address.</p>
+<div class="actions"><button id="checkPublicIpBtn" class="secondary" type="button">Check my public IP</button><span id="publicIpStatus" class="hint" role="status">Not checked</span></div>
+<label for="publicIpValue">Public IP address</label><input id="publicIpValue" readonly autocomplete="off" placeholder="Use Check my public IP">
+<label class="consent"><input id="includeIpInInvite" type="checkbox"><span>Include my checked public IP in the invitation link. Anyone who receives the link can read this address. It is placed in the URL fragment and is not sent in the initial HTTP request.</span></label>
+<div class="actions"><button id="createInviteLinkBtn" class="primary" type="button">Create invitation link</button><button id="copyInviteLinkBtn" class="secondary" type="button" disabled>Copy invitation link</button></div>
+<label for="inviteLinkOutput">Invitation link</label><textarea id="inviteLinkOutput" rows="3" readonly spellcheck="false" placeholder="Enter a room and invitation token, then create a link"></textarea>
+<p class="hint">A public IP address does not bypass NAT or firewalls. WebRTC uses ICE/STUN/TURN connectivity checks; use a TURN relay when direct paths fail.</p>
+<div id="sharedInviteIp" class="hint" role="status"></div>
+</section>
+<section class="connect panel"><div class="room-entry"><label for="room">Room name</label><input id="room" maxlength="64" value="open-room-01" autocomplete="off" spellcheck="false"><label for="inviteToken">Meeting invitation token</label><input id="inviteToken" type="password" autocomplete="off" placeholder="Paste room invitation token"></div><div class="actions"><button id="joinBtn" class="primary">Join & discover peers</button><button id="leaveBtn" class="secondary" disabled>Leave</button></div><p class="hint">Peers in this room are discovered automatically; no port scanning or unsolicited IP probing is performed.</p></section>
+<section class="controls panel"><div class="section-heading"><div><p class="eyebrow">YOUR IDENTITY</p><h2>Profile & privacy</h2></div></div>
+<p class="identity-guid">Your unique user GUID: <code id="userGuid"></code></p><div class="profile-grid"><div><label for="nickname">Nickname</label><input id="nickname" maxlength="32" placeholder="Your display name"></div><div><label for="avatarFile">Avatar image (from this device)</label><input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><img id="avatarPreview" class="avatar-preview" alt="Local avatar preview" hidden><button type="button" id="clearAvatarBtn" class="secondary">Remove avatar</button><p class="hint">Choose an image stored on your computer or phone. It is resized locally before use.</p></div></div>
+<label class="consent"><input id="savePeer" type="checkbox"><span>Save my nickname, avatar and observed connection IP to this host's local <code>data/peers.json</code> file. I understand this is sensitive connection metadata.</span></label>
+<p class="hint">IP addresses are observed by the signaling host, not reliably exposed by WebRTC to browsers. Uncheck this to avoid persistent IP logging.</p>
+<label class="consent"><input id="shareAddress" type="checkbox"><span>Allow VoiceConnect to share my signaling IP address with participants in rooms I join, so they can remember me and reconnect using a room invitation. This is optional and visible to the room.</span></label>
+<div class="actions"><button id="saveProfileBtn" class="secondary" disabled>Update profile</button></div><div id="profileStatus" class="hint" role="status"></div></section>
+<section class="controls panel"><div class="section-heading"><div><p class="eyebrow">TRUSTED CONTACTS</p><h2>Known peers</h2></div><span id="knownPeerCount" class="pill">0 saved</span></div>
+<p class="hint">The desktop app keeps an optional local <code>known-peers.json</code> file containing addresses that contacts explicitly chose to share. You can remove entries at any time. Remembered IPs are hints, not guaranteed direct WebRTC endpoints; reconnect through an invitation or room, not by scanning an address.</p>
+<div id="knownPeers" class="known-peers"><p class="hint">No remembered peers yet. Save a consenting peer from the live participant list.</p></div>
+</section>
+<section class="controls panel"><div class="section-heading"><div><p class="eyebrow">MESSAGE SECURITY</p><h2>Optional end-to-end chat encryption</h2></div><span id="encryptionState" class="pill">Off</span></div>
+<label class="consent"><input id="encryptionEnabled" type="checkbox"><span>Encrypt chat messages with a shared passphrase (AES-GCM). All room participants must enter the same passphrase.</span></label>
+<label for="encryptionPassphrase">Shared passphrase (12+ characters)</label><input id="encryptionPassphrase" type="password" minlength="12" autocomplete="new-password" placeholder="Share this secret privately with your contacts">
+<p id="encryptionStatus" class="hint" role="status">WebRTC audio, video and data channels are already encrypted in transit by the WebRTC standard. This option adds application-level encryption to chat text; it does not encrypt profile metadata or hide IP addresses.</p>
+</section>
+<section class="controls panel"><div class="section-heading"><div><p class="eyebrow">YOUR DEVICES</p><h2>Media controls</h2></div><span id="mediaState" class="pill">Not sharing</span></div>
+<div class="device-grid"><div><label for="cameraSelect">Camera</label><select id="cameraSelect"><option value="">Default camera</option></select></div><div><label for="micSelect">Microphone</label><select id="micSelect"><option value="">Default microphone</option></select></div></div>
+<div class="actions"><button id="startMediaBtn" class="primary">Enable camera & mic</button><button id="muteBtn" class="secondary" disabled>Mute mic</button><button id="cameraBtn" class="secondary" disabled>Turn camera off</button><button id="shareScreenBtn" class="secondary" disabled>Share screen</button></div><p class="hint" role="note">Privacy first: VoiceConnect asks separately before using your camera and microphone, then your browser or operating system may show its own permission prompt. You can approve either device independently. Screen sharing requires a separate confirmation and a system source picker; choose the screen/window yourself and stop sharing whenever you want. Declining any request does not block chat.</p><video id="localVideo" class="local-video" autoplay playsinline muted></video><video id="localScreenPreview" class="local-video screen-preview" autoplay playsinline muted hidden></video></section>
+<section class="chat panel"><div class="section-heading"><div><p class="eyebrow">ROOM MESSAGES · UTF-8</p><h2>Chat</h2></div><span class="pill">Live</span></div><div id="chatMessages" class="chat-messages" aria-live="polite"><p class="hint">Join a room to chat.</p></div><form id="chatForm" class="chat-compose"><button type="button" id="emojiBtn" class="secondary" aria-label="Open emoji picker">☺</button><input id="chatInput" maxlength="4000" placeholder="Write a message…" autocomplete="off"><button class="primary" type="submit">Send</button><div id="emojiPicker" class="emoji-picker" hidden></div></form></section>
+<section class="controls panel" id="fileTransferPanel">
+<div class="section-heading"><div><p class="eyebrow">PEER-TO-PEER TRANSFER</p><h2>Send & receive files</h2></div><span class="pill">WebRTC encrypted transport</span></div>
+<p class="hint">Files travel directly over an established WebRTC data channel, not through the signaling server. Each incoming file requires your approval. Maximum file size: 25 MB per transfer.</p>
+<div class="device-grid"><div><label for="fileRecipient">Send to</label><select id="fileRecipient"><option value="all">All connected room peers</option><option value="direct">Direct-call peer</option></select></div><div><label for="filePicker">Choose a file to send</label><input id="filePicker" type="file"></div></div>
+<div class="actions"><button id="sendFileBtn" class="primary" type="button" disabled>Send selected file</button><span id="fileTransferStatus" class="hint" role="status">Connect to a peer to transfer files.</span></div>
+<div id="fileTransferProgress" class="file-transfer-list" aria-live="polite"></div>
+<h3>Incoming files</h3><div id="incomingFiles" class="file-transfer-list" aria-live="polite"><p class="hint">No incoming files.</p></div>
+</section>
+<section class="peers-section"><div class="section-heading"><div><p class="eyebrow">LIVE ROOM</p><h2>Discovered participants</h2></div><span id="peerCount" class="pill">0 peers</span></div><div id="peers" class="peer-grid"><div class="empty panel">Join a room to discover participants.</div></div></section>
+<section class="controls panel"><div class="section-heading"><div><p class="eyebrow">NETWORK ROUTING</p><h2>Proxy, firewall & VPN</h2></div></div><p class="hint">Browser WebRTC media uses ICE, STUN and TURN. HTTP/SOCKS proxy settings generally affect signaling or app traffic, not arbitrary WebRTC UDP media. For restrictive networks, configure a TURN server reachable over TLS/TCP port 443. For a full VPN tunnel, use an OS VPN (for example WireGuard/OpenVPN) or a managed native VPN adapter; a web page cannot safely install or embed privileged VPN drivers.</p><div class="device-grid"><div><label for="turnUrl">TURN URL (use turns:...:443 for TLS)</label><input id="turnUrl" placeholder="turns:turn.example.com:443?transport=tcp"></div><div><label for="turnUser">TURN username</label><input id="turnUser" autocomplete="off"></div><div><label for="turnPass">TURN credential</label><input id="turnPass" type="password" autocomplete="new-password"></div></div><div class="actions"><button id="applyNetworkBtn" class="secondary">Apply ICE configuration</button></div><p class="hint">Use short-lived TURN credentials from a trusted backend in production; do not store permanent TURN secrets in browser local storage.</p></section>
+<section class="notice"><strong>Privacy & network note</strong><p>Only peers sharing a room are discovered. The signaling server necessarily sees the connecting IP; host-side persistence and sharing that address with room peers require separate explicit consent. WebRTC media is encrypted in transit. TURN relays media when direct paths fail; it does not decrypt and mix streams. Deploy with HTTPS/WSS, authentication, room secrets, rate limits and an authenticated TURN credential service.</p></section>
+</main><footer>VoiceConnect P2P · Independent implementation · Not affiliated with Microsoft DirectPlay</footer><script>
+window.__voiceConnectRendererError = null;
+window.addEventListener("error", event => {
+  window.__voiceConnectRendererError = event.error?.stack || event.message || "Unknown renderer error";
+}, true);
+window.addEventListener("unhandledrejection", event => {
+  const reason = event.reason;
+  window.__voiceConnectRendererError = reason?.stack || reason?.message || String(reason);
+});
+</script>
+<script type="module" src="/app.js"></script>
+</body></html>

@@ -1,0 +1,287 @@
+import http from "node:http";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { extname, join, normalize, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { WebSocketServer, WebSocket } from "ws";
+import { createRateLimiter } from "./rate-limit.js";
+
+const root = fileURLToPath(new URL(".", import.meta.url));
+const port = Number(process.env.PORT || 8787);
+const rooms = new Map();
+const registryPath = process.env.VOICECONNECT_REGISTRY || join(root, "data", "peers.json");
+const trustProxy = process.env.TRUST_PROXY === "1";
+const authSecret = process.env.VOICECONNECT_AUTH_SECRET || "";
+const adminSecret = process.env.VOICECONNECT_ADMIN_SECRET || "";
+const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || "").split(",").map(x => x.trim()).filter(Boolean));
+const rateAllowed = createRateLimiter({ maxKeys: 10000, cleanupEvery: 256 });
+const MAX_ACTIVE_ROOMS = 256;
+const MAX_ACTIVE_WEBSOCKETS = 1000;
+const production = process.env.NODE_ENV === "production";
+
+// Browser module scripts send Origin even for same-origin assets. Keep the
+// configured production allowlist, while allowing the exact local origin for
+// desktop/dev builds. Do not trust arbitrary origins or forwarded host values.
+export function isAllowedRequestOrigin(req, origin, options = {}) {
+  if (!origin) return true;
+  const origins = options.allowedOrigins || allowedOrigins;
+  const isProduction = options.production ?? production;
+  if (origins.has(origin)) return true;
+  if (isProduction) return false;
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase();
+    // Only the explicit loopback names used by the packaged desktop app are
+    // eligible for local-mode bypass. Exact Host matching alone is vulnerable
+    // to DNS-rebinding origins that resolve an attacker-controlled name to loopback.
+    if (!["localhost", "127.0.0.1", "[::1]", "::1"].includes(hostname)) return false;
+    const protocol = req.socket?.encrypted ? "https:" : "http:";
+    return url.origin === protocol + "//" + req.headers.host;
+  } catch {
+    return false;
+  }
+}
+if (production && authSecret.length < 32) throw new Error("Production requires VOICECONNECT_AUTH_SECRET (32+ chars).");
+if (production && allowedOrigins.size === 0) throw new Error("Production requires ALLOWED_ORIGINS.");
+if (production && (!process.env.TURN_URL || !process.env.TURN_SHARED_SECRET)) throw new Error("Production requires TURN_URL and TURN_SHARED_SECRET.");
+function signInvite(room, expires, nonce) {
+  const payload = Buffer.from(JSON.stringify({ room, exp: expires, nonce })).toString("base64url");
+  return payload + "." + createHmac("sha256", authSecret).update(payload).digest("base64url");
+}
+function verifyInvite(token, room) {
+  if (!authSecret) return !production;
+  if (typeof token !== "string" || token.length > 2048) return false;
+  const [payload, signature, extra] = token.split(".");
+  if (!payload || !signature || extra) return false;
+  const expected = createHmac("sha256", authSecret).update(payload).digest();
+  const actual = Buffer.from(signature, "base64url");
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return false;
+  try { const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")); return data.room === room && Number.isInteger(data.exp) && data.exp > Math.floor(Date.now()/1000); } catch { return false; }
+}
+const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml" };
+let registry = { version: 1, peers: [] };
+let persistQueue = Promise.resolve();
+let privacyMigrationPending = false;
+try {
+  const parsed = JSON.parse(await readFile(registryPath, "utf8"));
+  if (parsed?.version === 1 && Array.isArray(parsed.peers)) {
+    registry = {
+      version: 1,
+      peers: parsed.peers.map(peer => {
+        if (peer && typeof peer === "object" && Object.hasOwn(peer, "observedIp")) privacyMigrationPending = true;
+        return sanitizePersistedPeer(peer);
+      }).filter(Boolean)
+    };
+  }
+} catch { /* first run: create registry on first consented profile */ }
+
+function persistRegistry() {
+  persistQueue = persistQueue.then(async () => {
+    await mkdir(dirname(registryPath), { recursive: true });
+    const temp = registryPath + ".tmp";
+    await writeFile(temp, JSON.stringify(registry, null, 2), { mode: 0o600 });
+    const { rename } = await import("node:fs/promises");
+    await rename(temp, registryPath);
+  });
+  return persistQueue;
+}
+if (privacyMigrationPending) {
+  persistRegistry().then(() => {
+    console.log("VoiceConnect privacy migration: removed legacy persisted peer IP fields.");
+  }).catch(() => {
+    console.error("VoiceConnect privacy migration failed; legacy peer registry data requires operator attention.");
+  });
+}
+function observedIp(req) {
+  if (trustProxy) {
+    const forwarded = req.headers["x-forwarded-for"];
+    if (typeof forwarded === "string" && forwarded.length < 512) return forwarded.split(",")[0].trim();
+  }
+  return req.socket.remoteAddress || "unknown";
+}
+const server = http.createServer(async (req, res) => {
+  try {
+    const origin = req.headers.origin;
+    if (!isAllowedRequestOrigin(req, origin)) { res.writeHead(403); res.end("Origin not allowed"); return; }
+    const clientIp = observedIp(req);
+    if (!rateAllowed("http:" + clientIp, 120)) { res.writeHead(429, { "Retry-After": "60" }); res.end("Rate limit exceeded"); return; }
+    const requestUrl = new URL(req.url, "http://localhost");
+    if (requestUrl.pathname === "/api/health" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ ok: true, service: "voiceconnect-signaling", rooms: rooms.size, turnConfigured: Boolean(process.env.TURN_URL && process.env.TURN_SHARED_SECRET) }));
+      return;
+    }
+    if (requestUrl.pathname === "/api/invitations" && req.method === "POST") {
+      if (!authSecret || !adminSecret || req.headers.authorization !== "Bearer " + adminSecret) { res.writeHead(401); res.end("Unauthorized"); return; }
+      let body = "";
+      for await (const chunk of req) { body += chunk; if (body.length > 4096) { res.writeHead(413); res.end("Too large"); return; } }
+      const input = JSON.parse(body || "{}"), room = String(input.room || "");
+      if (!/^[a-zA-Z0-9_-]{3,64}$/.test(room)) { res.writeHead(400); res.end("Invalid room"); return; }
+      const ttl = Math.min(86400, Math.max(60, Number(input.ttlSeconds) || 3600));
+      const token = signInvite(room, Math.floor(Date.now()/1000) + ttl, randomUUID());
+      res.writeHead(201, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ room, token, expiresInSeconds: ttl })); return;
+    }
+    if (requestUrl.pathname === "/api/ice-servers" && req.method === "GET") {
+      const turnUrl = process.env.TURN_URL;
+      const turnSecret = process.env.TURN_SHARED_SECRET;
+      const iceServers = [{ urls: process.env.STUN_URL || "stun:stun.l.google.com:19302" }];
+      if (turnUrl && turnSecret) {
+        const expiry = Math.floor(Date.now() / 1000) + 3600;
+        const username = `${expiry}:${randomUUID()}`;
+        const credential = createHmac("sha1", turnSecret).update(username).digest("base64");
+        iceServers.push({ urls: turnUrl.split(",").map(value => value.trim()), username, credential });
+      }
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ iceServers, turnConfigured: Boolean(turnUrl && turnSecret), credentialTtlSeconds: 3600 }));
+      return;
+    }
+    const pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+    const requested = pathname === "/" ? "/index.html" : pathname;
+    const file = normalize(join(root, requested));
+    if (!file.startsWith(root)) throw new Error("Invalid path");
+    const data = await readFile(file);
+    res.writeHead(200, { "Content-Type": mime[extname(file)] || "application/octet-stream", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store" });
+    res.end(data);
+  } catch {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+  }
+});
+const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
+server.on("upgrade", (req, socket, head) => {
+  const origin = req.headers.origin, ip = observedIp(req);
+  if ((production && !origin) || !isAllowedRequestOrigin(req, origin)) { socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return; }
+  if (wss.clients.size >= MAX_ACTIVE_WEBSOCKETS || !rateAllowed("ws:" + ip, 20, 60000)) { socket.write("HTTP/1.1 429 Too Many Requests\r\nRetry-After: 60\r\n\r\n"); socket.destroy(); return; }
+  if (new URL(req.url, "http://localhost").pathname !== "/signal") { socket.destroy(); return; }
+  wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
+});
+function send(ws, message) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message)); }
+export function sanitizePersistedPeer(peer) {
+  if (!peer || typeof peer !== "object" || Array.isArray(peer)) return null;
+  const { observedIp, ...privacySafePeer } = peer;
+  return privacySafePeer;
+}
+export function buildRegistryEntry({ peerId, userGuid, nickname, avatar, observedIp, shareAddress, firstSeen, lastSeen }) {
+  return {
+    peerId,
+    userGuid,
+    nickname,
+    avatar,
+    ...(shareAddress === true && observedIp ? { observedIp } : {}),
+    firstSeen,
+    lastSeen
+  };
+}
+function profileFor(ws) {
+  return { peerId: ws.id, userGuid: ws.profile?.userGuid || ws.id, nickname: ws.profile?.nickname || "Guest", avatar: ws.profile?.avatar || "", addressShared: Boolean(ws.shareAddress), ...(ws.shareAddress && ws.ip ? { observedIp: ws.ip } : {}) };
+}
+function leave(ws) {
+  const room = rooms.get(ws.room);
+  if (!room) return;
+  room.delete(ws.id);
+  for (const peer of room.values()) send(peer, { type: "peer-left", peerId: ws.id });
+  if (!room.size) rooms.delete(ws.room);
+  ws.room = null;
+}
+wss.on("connection", (ws, req) => {
+  ws.id = randomUUID();
+  ws.room = null;
+  ws.ip = observedIp(req);
+  ws.profile = { userGuid: ws.id, nickname: "Guest", avatar: "" };
+  send(ws, { type: "welcome", peerId: ws.id });
+  ws.on("message", async (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw.toString()); } catch { return send(ws, { type: "error", message: "Invalid JSON" }); }
+    if (msg.type === "join") {
+      const roomName = String(msg.room || "").trim().slice(0, 64);
+      if (!/^[a-zA-Z0-9_-]{3,64}$/.test(roomName)) return send(ws, { type: "error", message: "Room must be 3–64 letters, numbers, _ or -" });
+      if (!rateAllowed("join:" + ws.ip, 10, 60000)) return send(ws, { type: "error", message: "Too many join attempts" });
+      if (!verifyInvite(msg.inviteToken, roomName)) return send(ws, { type: "error", message: "A valid, unexpired room invitation is required" });
+      if (!rooms.has(roomName) && rooms.size >= MAX_ACTIVE_ROOMS) return send(ws, { type: "error", message: "Server room capacity reached; try again later" });
+      const existingRoom = rooms.get(roomName);
+      if (existingRoom && existingRoom.size >= 8 && !existingRoom.has(ws.id)) return send(ws, { type: "error", message: "Room is full (maximum 8 peers)" });
+      leave(ws);
+      const room = rooms.get(roomName) || new Map();
+      ws.room = roomName;
+      const existing = [...room.values()].map(profileFor);
+      room.set(ws.id, ws);
+      rooms.set(roomName, room);
+      send(ws, { type: "joined", room: roomName, peers: existing });
+      for (const peer of room.values()) if (peer !== ws) send(peer, { type: "peer-joined", peer: profileFor(ws) });
+      return;
+    }
+    if (msg.type === "profile" && ws.room) {
+      if (!rateAllowed("profile:" + ws.id, 10, 60000)) return send(ws, { type: "error", message: "Profile update rate limit exceeded" });
+      const nickname = String(msg.nickname || "Guest").trim().replace(/[<>\u0000-\u001f]/g, "").slice(0, 32) || "Guest";
+      const avatar = typeof msg.avatar === "string" && (msg.avatar.length < 160000 && (/^https:\/\//i.test(msg.avatar) || /^data:image\/(png|jpeg|webp|gif);base64,/i.test(msg.avatar))) ? msg.avatar : "";
+      const suppliedGuid = typeof msg.userGuid === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(msg.userGuid) ? msg.userGuid.toLowerCase() : ws.id;
+      ws.profile = { userGuid: suppliedGuid, nickname, avatar };
+      ws.shareAddress = msg.shareAddress === true;
+      const consent = msg.saveLocally === true;
+      if (consent) {
+        const now = new Date().toISOString();
+        const previous = registry.peers.find(p => p.userGuid === suppliedGuid);
+        const entry = buildRegistryEntry({ peerId: ws.id, userGuid: suppliedGuid, nickname, avatar, observedIp: ws.ip, shareAddress: ws.shareAddress, firstSeen: previous?.firstSeen || now, lastSeen: now });
+        registry.peers = [entry, ...registry.peers.filter(p => p.userGuid !== suppliedGuid)].slice(0, 500);
+        try { await persistRegistry(); send(ws, { type: "profile-saved", saved: true }); }
+        catch (err) { send(ws, { type: "error", message: "Could not save local peer registry: " + err.message }); }
+      } else send(ws, { type: "profile-saved", saved: false });
+      for (const peer of rooms.get(ws.room)?.values() || []) if (peer !== ws) send(peer, { type: "peer-profile", peer: { ...profileFor(ws), profileUpdated: true } });
+      send(ws, { type: "peer-exchange", peers: [...(rooms.get(ws.room)?.values() || [])].filter(peer => peer !== ws).map(profileFor) });
+      return;
+    }
+    if (msg.type === "peer-exchange" && ws.room) {
+      if (!rateAllowed("pex:" + ws.id, 10, 60000)) return send(ws, { type: "error", message: "Peer exchange rate limit exceeded" });
+      const peers = [...(rooms.get(ws.room)?.values() || [])].filter(peer => peer !== ws).map(profileFor);
+      send(ws, { type: "peer-exchange", peers });
+      return;
+    }
+    if (msg.type === "chat" && ws.room) {
+      if (!rateAllowed("chat:" + ws.id, 20, 10000)) return send(ws, { type: "error", message: "Chat rate limit exceeded" });
+      const encrypted = msg.encrypted === true;
+      const text = encrypted ? "" : (typeof msg.text === "string" ? msg.text.normalize("NFC").slice(0, 4000) : "");
+      const ciphertext = encrypted && typeof msg.ciphertext === "string" && msg.ciphertext.length <= 12000 ? msg.ciphertext : "";
+      const iv = encrypted && typeof msg.iv === "string" && msg.iv.length <= 64 ? msg.iv : "";
+      if (encrypted ? (!ciphertext || !iv) : !text.trim()) return;
+      const message = { id: randomUUID(), peerId: ws.id, userGuid: ws.profile.userGuid, nickname: ws.profile.nickname, avatar: ws.profile.avatar || "", text, timestamp: new Date().toISOString(), encrypted };
+      if (encrypted) { message.ciphertext = ciphertext; message.iv = iv; }
+      const packet = { type: "chat", message };
+      for (const peer of rooms.get(ws.room)?.values() || []) send(peer, packet);
+      return;
+    }
+    if (msg.type === "signal" && ws.room) {
+      if (!rateAllowed("signal:" + ws.id, 120, 10000)) return send(ws, { type: "error", message: "Signaling rate limit exceeded" });
+      const target = rooms.get(ws.room)?.get(String(msg.to || ""));
+      if (!target) return send(ws, { type: "error", message: "Peer is no longer in this room" });
+      const payload = JSON.stringify(msg.payload ?? {});
+      if (payload.length > 48 * 1024) return send(ws, { type: "error", message: "Signaling message too large" });
+      send(target, { type: "signal", from: ws.id, payload: JSON.parse(payload) });
+    }
+    if (msg.type === "leave") leave(ws);
+  });
+  ws.on("close", () => leave(ws));
+  ws.on("error", () => leave(ws));
+});
+export function startServer(options = {}) {
+  const host = options.host || process.env.HOST || "0.0.0.0";
+  const listenPort = Number.isInteger(options.port) ? options.port : port;
+  return new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.off("listening", onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      const address = server.address();
+      const actualPort = typeof address === "object" && address ? address.port : listenPort;
+      console.log(`VoiceConnect P2P listening on http://${host}:${actualPort}; registry: ${registryPath}`);
+      resolve({ server, host, port: actualPort });
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(listenPort, host);
+  });
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) startServer();

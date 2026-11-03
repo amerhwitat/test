@@ -1,1 +1,24 @@
-{"$schema":"CHM-APP-INTEGRATION-1","application":"test","target":"Chimera II OS","integration_points":["CI","Universal Execution API","Aurora diagnostics"],"purpose":"Compatibility and regression test target for Chimera integration."}
+{
+  "$schema": "CHM-APP-INTEGRATION-1",
+  "application": "VoiceConnect",
+  "target": "Chimera II OS",
+  "integration_points": [
+    "CI",
+    "optional desktop launchers",
+    "Aurora application registry",
+    "Marine Start/application menu",
+    "verified local package launch",
+    "upstream project fallback"
+  ],
+  "purpose": "Compatibility and regression test target for Chimera integration.",
+  "targets": [
+    "ChimeraIIOS",
+    "OctavianOS"
+  ],
+  "desktop_profiles": [
+    "Aurora",
+    "Marine"
+  ],
+  "installation_policy": "Optional external package; operating-system images may ship launch entries but must not claim the application is installed unless a verified package is present.",
+  "release_gate": "Windows trusted-click, Linux/macOS packaging, security, signing, physical-device/network and independent-review acceptance remain separate required gates."
+}

@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars locally. Never commit real tokens or private keys.
+# Hetzner Cloud API token should be supplied via TF_VAR_hcloud_token.
+ssh_public_key = "ssh-ed25519 REPLACE_WITH_YOUR_PUBLIC_KEY"
+admin_cidrs    = ["203.0.113.10/32"] # Replace with your actual fixed admin IP.
+name           = "voiceconnect-prod"
+server_type    = "cx23"
+location       = "fsn1"

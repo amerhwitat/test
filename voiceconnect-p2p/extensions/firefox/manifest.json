@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "VoiceConnect P2P",
+  "version": "0.1.0",
+  "description": "Open VoiceConnect meetings and invitations from Firefox.",
+  "permissions": [
+    "storage"
+  ],
+  "action": {
+    "default_title": "VoiceConnect P2P",
+    "default_popup": "popup.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "voiceconnect-p2p@amerhwitat.github.io",
+      "strict_min_version": "109.0"
+    }
+  }
+}

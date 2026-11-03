@@ -1,0 +1,127 @@
+name: VoiceConnect production deploy
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY to deploy the configured production host"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  deploy:
+    if: ${{ inputs.confirm == 'DEPLOY' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Validate deployment secrets
+        env:
+          SERVER_HOST: ${{ secrets.VOICECONNECT_SERVER_HOST }}
+          SERVER_USER: ${{ secrets.VOICECONNECT_SERVER_USER }}
+          SSH_KEY: ${{ secrets.VOICECONNECT_SERVER_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VOICECONNECT_SERVER_KNOWN_HOSTS }}
+          DOMAIN: ${{ vars.VOICECONNECT_DOMAIN }}
+          ACME_EMAIL: ${{ vars.VOICECONNECT_ACME_EMAIL }}
+          TURN_EXTERNAL_IP: ${{ vars.VOICECONNECT_TURN_EXTERNAL_IP }}
+          TURN_SHARED_SECRET: ${{ secrets.VOICECONNECT_TURN_SHARED_SECRET }}
+          AUTH_SECRET: ${{ secrets.VOICECONNECT_AUTH_SECRET }}
+          ADMIN_SECRET: ${{ secrets.VOICECONNECT_ADMIN_SECRET }}
+        run: |
+          set -eu
+          for name in SERVER_HOST SERVER_USER SSH_KEY KNOWN_HOSTS DOMAIN ACME_EMAIL TURN_EXTERNAL_IP TURN_SHARED_SECRET AUTH_SECRET ADMIN_SECRET; do
+            eval "value=\${$name}"
+            test -n "$value" || { echo "Missing required GitHub secret/variable: $name" >&2; exit 2; }
+          done
+          test "${#TURN_SHARED_SECRET}" -ge 32
+          test "${#AUTH_SECRET}" -ge 32
+          test "${#ADMIN_SECRET}" -ge 32
+          case "$DOMAIN" in *[!A-Za-z0-9.-]*) exit 2;; esac
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.VOICECONNECT_SERVER_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VOICECONNECT_SERVER_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Prepare production environment file
+        env:
+          DOMAIN: ${{ vars.VOICECONNECT_DOMAIN }}
+          ACME_EMAIL: ${{ vars.VOICECONNECT_ACME_EMAIL }}
+          TURN_EXTERNAL_IP: ${{ vars.VOICECONNECT_TURN_EXTERNAL_IP }}
+          TURN_SHARED_SECRET: ${{ secrets.VOICECONNECT_TURN_SHARED_SECRET }}
+          AUTH_SECRET: ${{ secrets.VOICECONNECT_AUTH_SECRET }}
+          ADMIN_SECRET: ${{ secrets.VOICECONNECT_ADMIN_SECRET }}
+        run: |
+          set -eu
+          umask 077
+          {
+            printf 'DOMAIN=%s\n' "$DOMAIN"
+            printf 'ACME_EMAIL=%s\n' "$ACME_EMAIL"
+            printf 'ALLOWED_ORIGINS=https://%s\n' "$DOMAIN"
+            printf 'TURN_REALM=%s\n' "$DOMAIN"
+            printf 'TURN_EXTERNAL_IP=%s\n' "$TURN_EXTERNAL_IP"
+            printf 'TURN_SHARED_SECRET=%s\n' "$TURN_SHARED_SECRET"
+            printf 'VOICECONNECT_AUTH_SECRET=%s\n' "$AUTH_SECRET"
+            printf 'VOICECONNECT_ADMIN_SECRET=%s\n' "$ADMIN_SECRET"
+            printf 'TURN_URL=turn:%s:3478?transport=udp,turn:%s:3478?transport=tcp\n' "$DOMAIN" "$DOMAIN"
+            printf 'STUN_URL=stun:%s:3478\n' "$DOMAIN"
+          } > .env.production
+      - name: Transfer and deploy
+        env:
+          SERVER_HOST: ${{ secrets.VOICECONNECT_SERVER_HOST }}
+          SERVER_USER: ${{ secrets.VOICECONNECT_SERVER_USER }}
+        run: |
+          set -eu
+          ssh -i ~/.ssh/id_ed25519 "$SERVER_USER@$SERVER_HOST" 'mkdir -p ~/voiceconnect-p2p'
+          scp -i ~/.ssh/id_ed25519 .env.production "$SERVER_USER@$SERVER_HOST:~/voiceconnect.env.production"
+          ssh -i ~/.ssh/id_ed25519 "$SERVER_USER@$SERVER_HOST" 'set -eu
+            cd ~/voiceconnect-p2p
+            if [ ! -d .git ]; then
+              git clone --branch main --single-branch https://github.com/amerhwitat/test.git .
+            else
+              git fetch origin main
+              git checkout main
+              git reset --hard origin/main
+            fi
+            mv ~/voiceconnect.env.production .env.production
+            chmod 600 .env.production
+            chmod +x deploy-production.sh
+            ./deploy-production.sh'
+      - name: Verify HTTPS signaling and TURN credential endpoint
+        env:
+          DOMAIN: ${{ vars.VOICECONNECT_DOMAIN }}
+          ADMIN_SECRET: ${{ secrets.VOICECONNECT_ADMIN_SECRET }}
+        run: |
+          set -eu
+          curl --fail --silent --show-error "https://$DOMAIN/api/health" -o health.json
+          grep -q '"ok":true' health.json
+          grep -q '"turnConfigured":true' health.json
+          curl --fail --silent --show-error "https://$DOMAIN/api/ice-servers" -o ice.json
+          grep -q '"turnConfigured":true' ice.json
+          curl --fail --silent --show-error -X POST "https://$DOMAIN/api/invitations" \
+            -H "Authorization: Bearer $ADMIN_SECRET" \
+            -H 'Content-Type: application/json' \
+            --data '{"room":"deployment-check","ttlSeconds":300}' -o invite.json
+          grep -q '"token":' invite.json
+          node --input-type=module <<'NODE'
+          const domain = process.env.DOMAIN;
+          const ws = new WebSocket(`wss://${domain}/signal`);
+          const timeout = setTimeout(() => { console.error("WSS handshake timed out"); ws.close(); process.exit(1); }, 15000);
+          ws.addEventListener("message", event => {
+            try {
+              const message = JSON.parse(event.data);
+              if (message.type === "welcome" && typeof message.peerId === "string") {
+                clearTimeout(timeout);
+                ws.close();
+                console.log("WSS signaling handshake and welcome message passed.");
+              }
+            } catch {}
+          });
+          ws.addEventListener("error", () => { clearTimeout(timeout); console.error("WSS signaling connection failed"); process.exit(1); });
+          NODE
+          echo "HTTPS health, TURN configuration, invitation issuance and WSS signaling passed."

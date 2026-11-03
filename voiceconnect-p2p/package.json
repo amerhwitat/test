@@ -1,0 +1,90 @@
+{
+  "name": "voiceconnect-p2p",
+  "version": "0.4.2",
+  "private": true,
+  "description": "Independent peer-to-peer voice and camera application inspired by the DirectX 9 VoiceConnect sample.",
+  "type": "module",
+  "main": "electron-main.cjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "desktop": "electron .",
+    "build:win": "electron-builder --win nsis msi portable",
+    "build:linux": "electron-builder --linux AppImage deb",
+    "build:mac": "electron-builder --mac dmg zip",
+    "test": "node --check server.js && node --check app.js && node --check chat-crypto.js && node --check invitation.js && node --check file-transfer.js && node --check discovery/peer-record.js && node --check electron-main.cjs && node --check electron-file-save.cjs && node --check electron-main-directx.cjs && node --check electron-main-opengl.cjs && node --check electron-builder.directx.cjs && node --check electron-builder.opengl.cjs && node --check preload.cjs && node --check extensions/chromium/popup.js && node --check extensions/firefox/popup.js && node --test",
+    "build:win:directx": "electron-builder --win nsis msi portable --config electron-builder.directx.cjs",
+    "build:win:opengl": "electron-builder --win nsis msi portable --config electron-builder.opengl.cjs"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "45.2.0",
+    "electron-builder": "26.18.0",
+    "sharp": "0.35.5",
+    "png-to-ico": "3.0.2"
+  },
+  "build": {
+    "appId": "org.voiceconnect.p2p",
+    "productName": "VoiceConnect P2P",
+    "files": [
+      "**/*",
+      "!data/**",
+      "!dist/**",
+      "!**/dist/**",
+      "!node_modules/.cache/**"
+    ],
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "msi",
+        "portable"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network;InstantMessaging;",
+      "maintainer": "VoiceConnect Project",
+      "vendor": "VoiceConnect Project"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.social-networking",
+      "extendInfo": {
+        "NSCameraUsageDescription": "VoiceConnect accesses the camera only when you choose to enable video.",
+        "NSMicrophoneUsageDescription": "VoiceConnect accesses the microphone only when you choose to enable audio."
+      }
+    },
+    "msi": {
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "homepage": "https://github.com/amerhwitat/test/tree/main/voiceconnect-p2p",
+  "author": "VoiceConnect Project"
+}
