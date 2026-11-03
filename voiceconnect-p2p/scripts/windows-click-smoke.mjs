@@ -53,11 +53,14 @@ async function click(selector) {
   const point = await evaluate(`(() => {
     const e = document.querySelector(${JSON.stringify(selector)});
     if (!e) throw Error("Missing " + ${JSON.stringify(selector)});
+    e.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
     const r = e.getBoundingClientRect();
     const x = r.left + r.width / 2, y = r.top + r.height / 2;
-    const hit = document.elementFromPoint(x, y);
+    const inViewport = x >= 0 && y >= 0 && x < window.innerWidth && y < window.innerHeight;
+    const hit = inViewport ? document.elementFromPoint(x, y) : null;
     return {
-      x, y, disabled: !!e.disabled, visible: r.width > 0 && r.height > 0,
+      x, y, viewport: { width: window.innerWidth, height: window.innerHeight },
+      disabled: !!e.disabled, visible: r.width > 0 && r.height > 0 && inViewport,
       hit: hit?.closest("button")?.id || hit?.id || hit?.tagName || null
     };
   })()`);
