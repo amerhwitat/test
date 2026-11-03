@@ -42,7 +42,7 @@ test("rejects DNS-rebinding hostnames even when the Host header matches", () => 
 });
 
 test("uses the direct TLS socket state when checking same-origin HTTPS", () => {
-  assert.equal(isAllowedRequestOrigin(request("voice.example.com", true), "https://voice.example.com", {
+  assert.equal(isAllowedRequestOrigin(request("localhost", true), "https://localhost", {
     allowedOrigins: new Set(), production: false
   }), true);
 });
