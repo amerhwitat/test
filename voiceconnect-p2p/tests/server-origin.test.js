@@ -35,6 +35,12 @@ test("rejects malformed, opaque, and file origins", () => {
   }
 });
 
+test("rejects DNS-rebinding hostnames even when the Host header matches", () => {
+  assert.equal(isAllowedRequestOrigin(request("attacker.example:63902"), "http://attacker.example:63902", {
+    allowedOrigins: new Set(), production: false
+  }), false);
+});
+
 test("uses the direct TLS socket state when checking same-origin HTTPS", () => {
   assert.equal(isAllowedRequestOrigin(request("voice.example.com", true), "https://voice.example.com", {
     allowedOrigins: new Set(), production: false
